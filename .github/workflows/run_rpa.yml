@@ -1,13 +1,12 @@
 name: SquadBeyond RPA
 
-# GASから「run-rpa」という名前の信号（Webhook）が来た時に起動する設定
 on:
   repository_dispatch:
     types: [run-rpa]
 
 jobs:
   run-playwright:
-    runs-on: ubuntu-latest # クラウド上のLinux環境を借りる
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -17,28 +16,31 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install Playwright
+      - name: Install dependencies
         run: |
           npm init -y
-          npm install playwright
+          npm install playwright axios
           npx playwright install --with-deps chromium
 
       - name: Run RPA Script
-        # GASから送られてきたデータ（client_payload）を環境変数としてセットする
         env:
           SQUADBEYOND_ID: ${{ secrets.SQUADBEYOND_ID }}
           SQUADBEYOND_PASS: ${{ secrets.SQUADBEYOND_PASS }}
+          GAS_WEBAPP_URL: ${{ secrets.GAS_WEBAPP_URL }}
           ROW_IDX: ${{ github.event.client_payload.row_idx }}
           DOMAIN: ${{ github.event.client_payload.domain }}
           GROUP_NAME: ${{ github.event.client_payload.group_name }}
           TARGET_URL: ${{ github.event.client_payload.target_url }}
           ACCOUNT_NAME: ${{ github.event.client_payload.account_name }}
           ARTICLE_NAME: ${{ github.event.client_payload.article_name }}
+          SEARCH_KEYWORD: ${{ github.event.client_payload.search_keyword }}
+          TARGET_ARTICLE: ${{ github.event.client_payload.target_article }}
         run: node task.js
-- name: Upload Video
-        if: always() # 成功しても失敗しても必ず実行
+
+      - name: Upload Video
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: execution-video
           path: videos/
-          retention-days: 3 # 3日間保存
+          retention-days: 3

@@ -30,7 +30,6 @@ const axios = require('axios');
     await page.goto(targetUrl);
     await page.waitForLoadState('load');
 
-    // パターンA: 「ログインページへ」というポップアップが出た場合
     const loginLink = page.getByRole('link', { name: 'ログインページへ' });
     if (await loginLink.isVisible()) {
       console.log(`  => ⚠️ セッション切れを検知。「ログインページへ」進みます。`);
@@ -38,7 +37,6 @@ const axios = require('axios');
       await page.waitForLoadState('load');
     }
 
-    // パターンB: ログイン画面（メール・パスワード入力欄）が出た場合
     const emailInput = page.locator('input[name="email"]');
     if (await emailInput.isVisible()) {
       console.log(`  => 🔑 ID/PASS入力画面を検知。情報を入力します。`);
@@ -48,45 +46,51 @@ const axios = require('axios');
       await page.waitForLoadState('load');
     }
 
-    // パターンC: アカウント選択画面の「ログイン」ボタンが出た場合
     const secondLoginButton = page.getByRole('button', { name: 'ログイン', exact: true });
     if (await secondLoginButton.isVisible()) {
       console.log(`  => 🔄 アカウント選択画面を検知。追加の「ログイン」ボタンを押します。`);
       await secondLoginButton.first().click();
-      
       console.log(`  => ⏳ 画面遷移のため5秒待機します...`);
       await page.waitForTimeout(5000); 
-      await page.waitForLoadState('load'); // networkidleからloadに変更！
+      await page.waitForLoadState('load');
     }
 
-    // 念のためもう一度ターゲットURLへ移動
     console.log(`  => ✅ ログインフロー突破。ターゲットURLを再度開きます。`);
     await page.goto(targetUrl);
     await page.waitForLoadState('load');
 
-
     // [Step 2] フォルダ作成のための検索とメニュー操作
     console.log(`\n[Step 2] 検索窓に「木村」と入力して絞り込みます。`);
-    // Playwrightは要素が出現するまで自動で待ってくれるため、そのままfillでOK
     await page.locator('input[type="search"]').first().fill('木村');
     await page.waitForTimeout(1000);
 
     console.log(`\n[Step 3] グループ名「${groupName}」のメニューを開きます。`);
     const menuButton = page.locator(`div:has-text("${groupName}")`).locator('button').last();
     await menuButton.click();
+    await page.waitForTimeout(500); // メニューのアニメーション展開を待つ
 
+    // ★修正①: 左メニューの誤検知を防ぎ、ポップアップ内の「フォルダ作成」を確実に押す
     console.log(`\n[Step 4] メニューから「フォルダ作成」をクリックします。`);
-    await page.getByRole('button', { name: 'フォルダ作成' }).click();
+    await page.getByText('フォルダ作成', { exact: true }).last().click();
+    await page.waitForTimeout(500);
 
     // [Step 3] フォルダ作成情報の入力
     console.log(`\n[Step 5] フォルダ作成情報を入力中...`);
-    await page.locator('input[type="text"][required]').fill(accountName);
+    
+    console.log(`  - フォルダ名を入力: ${accountName}`);
+    // ★修正②: 「フォルダ名」という文字を基準に、そのすぐ下にある入力欄を確実に見つける
+    const folderNameInput = page.locator('label:has-text("フォルダ名")').locator('xpath=..').locator('input');
+    await folderNameInput.fill(accountName);
+    await page.keyboard.press('Escape'); // サジェスト(候補)が被って「作成する」ボタンを押せなくなるのを防ぐ
+    
+    console.log(`  - ドメインを選択: ${domain}`);
     await page.getByLabel('認証済み独自ドメイン').click();
     await page.getByRole('option', { name: domain }).click();
     
     console.log(`\n[Step 6] 「作成する」ボタンを押してフォルダを確定します。`);
     await page.getByRole('button', { name: '作成する' }).click();
     await page.waitForLoadState('load');
+    await page.waitForTimeout(1000); // 作成後の画面反映を待機
 
     // [Step 4] 記事の検索
     console.log(`\n[Step 7] 検索窓にキーワード「${searchKeyword}」を入力します。`);
@@ -104,6 +108,7 @@ const axios = require('axios');
     console.log(`\n[Step 10] 該当記事のメニューを開き、「別フォルダへ複製」を選択します。`);
     const articleMenu = page.locator(`div:has-text("${targetArticle}")`).locator('button').last();
     await articleMenu.click();
+    await page.waitForTimeout(500);
     await page.getByText('別フォルダへ複製').click();
 
     console.log(`\n[Step 11] 複製設定を入力中...`);
@@ -111,7 +116,8 @@ const axios = require('axios');
     await page.getByRole('button', { name: /​/ }).click();
     await page.getByRole('option', { name: 'フルアウト' }).click();
     
-    await page.locator('input[role="combobox"]').fill(accountName);
+    console.log(`  - 移動先フォルダを「${accountName}」に設定します。`);
+    await page.locator('input[role="combobox"]').last().fill(accountName);
     await page.getByRole('option', { name: accountName }).click();
     
     console.log(`\n[Step 12] 「複製する」をクリックして確定します。`);
@@ -127,6 +133,7 @@ const axios = require('axios');
     console.log(`\n[Step 14] 複製された記事のメニューから、入稿用URLを取得します。`);
     const resultMenu = page.locator(`div:has-text("${targetArticle}")`).locator('button').last();
     await resultMenu.click();
+    await page.waitForTimeout(500);
 
     entryUrl = await page.evaluate(() => {
         const input = document.querySelector('input[readonly]');

@@ -1,17 +1,28 @@
 name: SquadBeyond RPA
+
 on:
   repository_dispatch:
     types: [run-rpa]
+
 jobs:
   run-playwright:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: npm install playwright axios && npx playwright install --with-deps chromium
-      - name: Run Task
+
+      - name: Install dependencies
+        run: |
+          npm init -y
+          npm install playwright axios
+          npx playwright install --with-deps chromium
+
+      - name: Run RPA Script
         env:
           SQUADBEYOND_ID: ${{ secrets.SQUADBEYOND_ID }}
           SQUADBEYOND_PASS: ${{ secrets.SQUADBEYOND_PASS }}
@@ -25,3 +36,11 @@ jobs:
           SEARCH_KEYWORD: ${{ github.event.client_payload.search_keyword }}
           TARGET_ARTICLE: ${{ github.event.client_payload.target_article }}
         run: node task.js
+
+      - name: Upload Video
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: execution-video
+          path: videos/
+          retention-days: 3

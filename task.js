@@ -40,7 +40,7 @@ const { chromium } = require('playwright');
     // ==========================================
   
 
-    // ① 検索窓に「木村」と入力する
+// ① 検索窓に「木村」と入力する
     // ※idは動的に変わるため、役割(searchbox)または属性(type="search")で指定します。
     console.log("検索窓に『木村』と入力します...");
     
@@ -51,17 +51,67 @@ const { chromium } = require('playwright');
     // const searchInput = page.locator('input[type="search"]').first();
 
     // 検索窓に入力
-    await searchInput.fill('木村');
-
-    // もし入力後に「Enterキー」を押す必要がある場合は、以下の行のコメントアウト(//)を外してください。
-    // await searchInput.press('Enter');
+    await searchInput.fill('木村_260410');
     
     // 検索結果が読み込まれるまで少し待つ（必要に応じて）
     await page.waitForLoadState('networkidle');
 
+// ② 「グループ名」の右側にあるメニューボタン（三点リーダー）をクリック
+    console.log(`グループ名「${groupName}」のメニューボタンを探しています...`);
 
+    // 1. まず、スプレッドシートのC列（groupName）と同じテキストを持つ要素を探す
+    // 2. その親要素を辿って、その中にある「button」を探す
+    // これにより、他の行のボタンと間違えずに特定できます
+    const menuButton = page.locator(`div:has-text("${groupName}")`).locator('button').last();
 
+    // ボタンが見えるまでスクロールしてクリック
+    await menuButton.scrollIntoViewIfNeeded();
+    await menuButton.click();
 
+    console.log("メニューボタンをクリックしました。");
+
+    // メニューが表示されるまで少し待機
+    await page.waitForTimeout(1000);
+
+// ③ メニューの中から「フォルダ作成」をクリック
+    console.log("「フォルダ作成」ボタンをクリックします...");
+    
+    // 画面全体から探すのではなく、現在表示されているメニュー（role="menu" や popover）を優先
+    // 「フォルダ作成」というテキストが含まれるボタンを特定してクリック
+    const createFolderButton = page.getByRole('button', { name: 'フォルダ作成' });
+    
+    // クリック可能になるまで待機してから実行
+    await createFolderButton.waitFor({ state: 'visible' });
+    await createFolderButton.click();
+
+    console.log("フォルダ作成画面が開くのを待っています...");
+    // 画面が切り替わるか、入力欄が出るまで少し待機
+    await page.waitForLoadState('networkidle');
+
+// ④ フォルダ名の入力（F列：accountName）
+    console.log(`フォルダ名に入力中: ${accountName}`);
+    // placeholderが空なので、input要素のタイプ（text）と必須（required）属性を組み合わせて特定
+    await page.locator('input[type="text"][required]').fill(accountName);
+
+// ⑤ 認証済み独自ドメインの選択（B列：domain）
+    console.log(`ドメインを選択中: ${domain}`);
+    // 「認証済み独自ドメイン」というラベルが付いているセレクトボックスをクリック
+    await page.getByLabel('認証済み独自ドメイン').click();
+    
+    // プルダウンの選択肢（リスト）が表示されるので、スプシのB列のドメイン名と一致するものをクリック
+    // SquadBeyondのプルダウンはMui-Popover形式が多いので、画面全体からテキストで探します
+    await page.getByRole('option', { name: domain }).click();
+
+// ⑥ 「作成する」ボタンをクリック
+    console.log("「作成する」ボタンをクリックして確定します...");
+    const submitButton = page.getByRole('button', { name: '作成する' });
+    
+    // ボタンがクリック可能（ローディング中でない）ことを確認してクリック
+    await submitButton.click();
+
+    // フォルダ作成後の画面遷移または完了を待機
+    await page.waitForLoadState('networkidle');
+    console.log("フォルダの作成が完了しました。");
     
 
   } catch (error) {

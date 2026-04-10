@@ -200,9 +200,31 @@ const { chromium } = require('playwright');
     // この後、GAS側に「受け取り用URL」を作る必要があります。
 
     
+// --- 正常終了の報告 ---
+    const gasUrl = process.env.GAS_WEBAPP_URL;
+    if (gasUrl) {
+      const axios = require('axios');
+      await axios.post(gasUrl, {
+        row_idx: process.env.ROW_IDX,
+        entry_url: entryUrl, // 取得したURL
+        status: 'success'
+      });
+      console.log("GASへの成功報告が完了しました。");
+    }
 
   } catch (error) {
     console.error("エラーが発生しました:", error);
+    
+    // --- エラー発生の報告 ---
+    const gasUrl = process.env.GAS_WEBAPP_URL;
+    if (gasUrl) {
+      const axios = require('axios');
+      await axios.post(gasUrl, {
+        row_idx: process.env.ROW_IDX,
+        entry_url: "", 
+        status: 'error' // GAS側でJ列を「エラー」にするトリガーになります
+      });
+    }
     process.exit(1);
   } finally {
     await browser.close();

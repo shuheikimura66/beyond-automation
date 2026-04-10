@@ -3,8 +3,8 @@ const axios = require('axios');
 
 (async () => {
   const browser = await chromium.launch();
+  // 動画保存をオフにして、シンプルに起動します
   const context = await browser.newContext({
-    recordVideo: { dir: 'videos/' },
     viewport: { width: 1280, height: 720 }
   });
   const page = await context.newPage();
@@ -26,21 +26,25 @@ const axios = require('axios');
     console.log(`🚀 RPA開始 (対象行: ${rowIdx})`);
     console.log(`=========================================`);
 
-    // [Step 1] ターゲットURLへのアクセスとログイン判定
+    // [Step 1] ターゲットURLへアクセス
     console.log(`\n[Step 1] ターゲットURLにアクセスします: ${targetUrl}`);
     await page.goto(targetUrl);
     await page.waitForLoadState('networkidle');
 
-    // 「ログインページへ」のリンク（ポップアップ）が出ているか確認
+    // パターンA: 「ログインページへ」というポップアップが出た場合
     const loginLink = page.getByRole('link', { name: 'ログインページへ' });
     if (await loginLink.isVisible()) {
-      console.log(`  => ⚠️ セッション切れを検知しました。「ログインページへ」進みます。`);
+      console.log(`  => ⚠️ セッション切れを検知。「ログインページへ」進みます。`);
       await loginLink.click();
       await page.waitForLoadState('networkidle');
+    }
 
-      console.log(`  => 🔑 ログイン情報を入力中...`);
-      await page.fill('input[name="email"]', process.env.SQUADBEYOND_ID);
-      await page.fill('input[name="password"]', process.env.SQUADBEYOND_PASS);
+    // パターンB: ログイン画面（メール入力欄）が表示されているか確認
+    const emailInput = page.locator('input[name="email"]');
+    if (await emailInput.isVisible()) {
+      console.log(`  => 🔑 ログイン画面を検知。ログイン情報を入力します。`);
+      await emailInput.fill(process.env.SQUADBEYOND_ID);
+      await page.locator('input[name="password"]').fill(process.env.SQUADBEYOND_PASS);
       await page.getByRole('button', { name: 'ログイン' }).click();
       await page.waitForNavigation();
       
@@ -48,13 +52,13 @@ const axios = require('axios');
       await page.goto(targetUrl);
       await page.waitForLoadState('networkidle');
     } else {
-      console.log(`  => ✅ ログイン済みです。そのまま操作を続行します。`);
+      console.log(`  => ✅ ログイン済み、または対象ページに直接アクセスできました。`);
     }
 
     // [Step 2] フォルダ作成のための検索とメニュー操作
     console.log(`\n[Step 2] 検索窓に「木村」と入力して絞り込みます。`);
     await page.locator('input[type="search"]').first().fill('木村');
-    await page.waitForTimeout(1000); // 検索結果の描画待ち
+    await page.waitForTimeout(1000);
 
     console.log(`\n[Step 3] グループ名「${groupName}」のメニューを開きます。`);
     const menuButton = page.locator(`div:has-text("${groupName}")`).locator('button').last();
@@ -65,8 +69,6 @@ const axios = require('axios');
 
     // [Step 3] フォルダ作成情報の入力
     console.log(`\n[Step 5] フォルダ作成情報を入力中...`);
-    console.log(`  - フォルダ名: ${accountName}`);
-    console.log(`  - ドメイン: ${domain}`);
     await page.locator('input[type="text"][required]').fill(accountName);
     await page.getByLabel('認証済み独自ドメイン').click();
     await page.getByRole('option', { name: domain }).click();
@@ -95,10 +97,9 @@ const axios = require('axios');
 
     console.log(`\n[Step 11] 複製設定を入力中...`);
     await page.locator('input[type="text"].MuiFilledInput-input').first().fill(targetArticle);
-    await page.getByRole('button', { name: /​/ }).click(); // チーム選択のプルダウン
+    await page.getByRole('button', { name: /​/ }).click();
     await page.getByRole('option', { name: 'フルアウト' }).click();
     
-    console.log(`  - 移動先フォルダを「${accountName}」に設定します。`);
     await page.locator('input[role="combobox"]').fill(accountName);
     await page.getByRole('option', { name: accountName }).click();
     
@@ -126,18 +127,18 @@ const axios = require('axios');
     console.log(`\n[Step 15] 取得したURLをGASへ送信（報告）します。`);
     if (gasUrl) {
       await axios.post(gasUrl, { row_idx: rowIdx, entry_url: entryUrl, status: 'success' });
-      console.log(`  => 📤 GASへのデータ送信が完了しました。`);
     }
 
-    console.log(`\n=========================================`);
-    console.log(`🎉 RPA処理が正常に完了しました！`);
-    console.log(`=========================================`);
+    console.log(`\n🎉 RPA処理が正常に完了しました！`);
 
   } catch (error) {
     console.error(`\n❌ [Error] エラーが発生しました:\n`, error);
     
+    // エラーが起きた瞬間の画面をスクショ撮影（これでもう迷わない！）
+    await page.screenshot({ path: 'error-screenshot.png', fullPage: true });
+    console.log(`📸 エラー画面のスクリーンショットを保存しました。`);
+
     if (gasUrl) {
-      console.log(`\n⚠️ エラー情報をGASへ送信（報告）します。`);
       await axios.post(gasUrl, { row_idx: rowIdx, entry_url: "", status: 'error' }).catch(e => console.error("GAS報告失敗:", e));
     }
     process.exit(1);

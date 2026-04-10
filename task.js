@@ -112,6 +112,93 @@ const { chromium } = require('playwright');
     // フォルダ作成後の画面遷移または完了を待機
     await page.waitForLoadState('networkidle');
     console.log("フォルダの作成が完了しました。");
+
+ // ①〜② スプシのK列(searchKeyword)を検索窓に入力
+    console.log(`K列のキーワードで検索中: ${searchKeyword}`);
+    const topSearchInput = page.locator('input[type="search"]').first();
+    await topSearchInput.fill(searchKeyword);
+    await page.waitForTimeout(1000); // 検索結果の反映待ち
+
+ // ③ 「原本グループ」をクリック
+    console.log("原本グループを選択します");
+    await page.getByText('原本グループ').click();
+
+ // ④〜⑤ スプシのL列(targetArticle)を記事検索窓に入力
+    // 画面中央右側の検索窓（画像から推測）に入力
+    console.log(`L列の記事名を検索中: ${targetArticle}`);
+    await page.getByPlaceholder('媒体/名前検索').fill(targetArticle);
+    await page.waitForTimeout(1000);
+
+ // ⑥ 検索して出てきた文字列の右側にある「：」ボタンを押す
+    console.log(`${targetArticle} のメニューボタンを探しています...`);
+    // 文字列(targetArticle)が含まれる行(div)を特定し、その中にある最後のbuttonをクリック
+    const articleMenu = page.locator(`div:has-text("${targetArticle}")`).locator('button').last();
+    await articleMenu.click();
+
+  // ⑦ 「別フォルダへ複製」をクリック
+    await page.getByText('別フォルダへ複製').click();
+
+  // ⑧ beyondページ名を入力（targetArticleをそのまま入力）
+    console.log("複製後のページ名を入力中...");
+    await page.locator('input[type="text"].MuiFilledInput-input').first().fill(targetArticle);
+
+  // ⑨ 「チーム」で「フルアウト」を選択
+    await page.getByRole('button', { name: /​/ }).click(); // Selectの空文字スパン対策
+    await page.getByRole('option', { name: 'フルアウト' }).click();
+
+  // ⑩ 「フォルダ」で⑥（ステップ④〜⑥）で作成したフォルダ名を選択
+    console.log(`フォルダ「${accountName}」を選択します`);
+    const folderInput = page.locator('input[role="combobox"]');
+    await folderInput.fill(accountName);
+    await page.getByRole('option', { name: accountName }).click();
+
+  // ⑪ 「複製する」ボタンをクリック
+    console.log("「複製する」をクリックして確定します");
+    await page.getByRole('button', { name: '複製する' }).click();
+
+    // 完了待機
+    await page.waitForLoadState('networkidle');
+
+// ==========================================
+    // 5. 複製された記事のURL取得とステータス更新
+    // ==========================================
+
+// ① 入力画面で先ほど作成したフォルダ名(accountName)を入力
+    console.log(`作成したフォルダ「${accountName}」を検索中...`);
+    const finalSearchInput = page.locator('input[type="search"]').first();
+    await finalSearchInput.fill(accountName);
+    await page.waitForTimeout(1000);
+
+ // ② 作成したフォルダ名を選択（テキスト一致でクリック）
+    console.log("フォルダを選択します");
+    await page.getByText(accountName, { exact: true }).click();
+    await page.waitForLoadState('networkidle');
+
+ // ③ 複製した「beyondページ名」(targetArticle)のメニュー「：」をクリック
+    console.log(`${targetArticle} のメニューを開きます`);
+    const resultArticleMenu = page.locator(`div:has-text("${targetArticle}")`).locator('button').last();
+    await resultArticleMenu.click();
+
+ // ③-2 URLコピーボタン（FileCopyIcon）を探して、そのURLを抽出する
+    // 直接コピーボタンを押すのではなく、そのボタンに紐づくリンクや属性を取得するのが確実です
+    console.log("入稿用URLを取得しています...");
+    
+    // SquadBeyondの仕様に合わせて調整：コピーアイコンの親要素や、付近にあるリンクを取得
+    // ここでは、データ属性やリンクが含まれている「a要素」や「input要素」を探します
+    const urlElement = page.locator('data-testid="FileCopyIcon"').locator('xpath=..'); // アイコンの親を取得
+    
+    // もしクリップボードコピーが必須な場合、あるいは単純に画面上のURLテキストを拾う場合：
+    const entryUrl = await page.evaluate(() => {
+        // ここは実際のDOM構造により調整が必要ですが、多くの場合 hidden input等にURLがあります
+        // 一旦、現在開いているページのURLや特定のセレクタから取得する例
+        return document.querySelector('input[readonly]') ? document.querySelector('input[readonly]').value : location.href;
+    });
+
+    console.log(`取得成功: ${entryUrl}`);
+
+    // ④〜⑤ GASへ結果を送信（スプシのM列にURL格納、J列を完了へ）
+    // この後、GAS側に「受け取り用URL」を作る必要があります。
+
     
 
   } catch (error) {

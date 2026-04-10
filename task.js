@@ -38,9 +38,31 @@ const { chromium } = require('playwright');
     // ==========================================
     // 4. ここから実際の画面操作（動画の動き）を実装します
     // ==========================================
+  
+
+    // ① 検索窓に「木村」と入力する
+    // ※idは動的に変わるため、役割(searchbox)または属性(type="search")で指定します。
+    console.log("検索窓に『木村』と入力します...");
     
-    // 【例】グループリストを開く、フォルダを作成する、ドメインを選ぶ...
-    // ※この部分のコードをこれから一緒に作っていきます！
+    // 方法A: ロール（役割）で探す場合
+    const searchInput = page.getByRole('searchbox');
+    
+    // もし画面内に複数の検索窓があって上記でエラーになる場合は、こちらを使います
+    // const searchInput = page.locator('input[type="search"]').first();
+
+    // 検索窓に入力
+    await searchInput.fill('木村');
+
+    // もし入力後に「Enterキー」を押す必要がある場合は、以下の行のコメントアウト(//)を外してください。
+    // await searchInput.press('Enter');
+    
+    // 検索結果が読み込まれるまで少し待つ（必要に応じて）
+    await page.waitForLoadState('networkidle');
+
+
+
+
+    
 
   } catch (error) {
     console.error("エラーが発生しました:", error);

@@ -28,14 +28,14 @@ const axios = require('axios');
     // [Step 1] ターゲットURLへアクセス
     console.log(`\n[Step 1] ターゲットURLにアクセスします: ${targetUrl}`);
     await page.goto(targetUrl);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
     // パターンA: 「ログインページへ」というポップアップが出た場合
     const loginLink = page.getByRole('link', { name: 'ログインページへ' });
     if (await loginLink.isVisible()) {
       console.log(`  => ⚠️ セッション切れを検知。「ログインページへ」進みます。`);
       await loginLink.click();
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('load');
     }
 
     // パターンB: ログイン画面（メール・パスワード入力欄）が出た場合
@@ -44,31 +44,30 @@ const axios = require('axios');
       console.log(`  => 🔑 ID/PASS入力画面を検知。情報を入力します。`);
       await emailInput.fill(process.env.SQUADBEYOND_ID);
       await page.locator('input[name="password"]').fill(process.env.SQUADBEYOND_PASS);
-      // 最初のログインボタンをクリック
       await page.getByRole('button', { name: 'ログイン' }).first().click();
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('load');
     }
 
-    // パターンC: アカウント選択画面の「ログイン」ボタンが出た場合（← 今回追加した突破口！）
-    // メール入力欄はないが、「ログイン」というボタンだけが存在する場合
+    // パターンC: アカウント選択画面の「ログイン」ボタンが出た場合
     const secondLoginButton = page.getByRole('button', { name: 'ログイン', exact: true });
     if (await secondLoginButton.isVisible()) {
       console.log(`  => 🔄 アカウント選択画面を検知。追加の「ログイン」ボタンを押します。`);
       await secondLoginButton.first().click();
       
       console.log(`  => ⏳ 画面遷移のため5秒待機します...`);
-      await page.waitForTimeout(5000); // ご指示通り5秒待つ
-      await page.waitForLoadState('networkidle');
+      await page.waitForTimeout(5000); 
+      await page.waitForLoadState('load'); // networkidleからloadに変更！
     }
 
-    // すべてのログインの壁を突破したら、念のためもう一度ターゲットURLへ移動して確実な状態にする
+    // 念のためもう一度ターゲットURLへ移動
     console.log(`  => ✅ ログインフロー突破。ターゲットURLを再度開きます。`);
     await page.goto(targetUrl);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
 
     // [Step 2] フォルダ作成のための検索とメニュー操作
     console.log(`\n[Step 2] 検索窓に「木村」と入力して絞り込みます。`);
+    // Playwrightは要素が出現するまで自動で待ってくれるため、そのままfillでOK
     await page.locator('input[type="search"]').first().fill('木村');
     await page.waitForTimeout(1000);
 
@@ -87,7 +86,7 @@ const axios = require('axios');
     
     console.log(`\n[Step 6] 「作成する」ボタンを押してフォルダを確定します。`);
     await page.getByRole('button', { name: '作成する' }).click();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
     // [Step 4] 記事の検索
     console.log(`\n[Step 7] 検索窓にキーワード「${searchKeyword}」を入力します。`);
@@ -117,13 +116,13 @@ const axios = require('axios');
     
     console.log(`\n[Step 12] 「複製する」をクリックして確定します。`);
     await page.getByRole('button', { name: '複製する' }).click();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
     // [Step 6] 最終URL取得処理
     console.log(`\n[Step 13] 作成したフォルダ「${accountName}」を再検索して移動します。`);
     await page.locator('input[type="search"]').first().fill(accountName);
     await page.getByText(accountName, { exact: true }).click();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
     console.log(`\n[Step 14] 複製された記事のメニューから、入稿用URLを取得します。`);
     const resultMenu = page.locator(`div:has-text("${targetArticle}")`).locator('button').last();

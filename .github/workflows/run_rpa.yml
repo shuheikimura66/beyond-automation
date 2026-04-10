@@ -37,8 +37,8 @@ jobs:
           TARGET_ARTICLE: ${{ github.event.client_payload.target_article }}
         run: node task.js
 
-- name: Upload Error Screenshot
-        if: failure() # エラーが起きた時だけ実行
+      - name: Upload Error Screenshot
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: error-screenshot

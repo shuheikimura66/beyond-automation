@@ -3,7 +3,6 @@ const axios = require('axios');
 
 (async () => {
   const browser = await chromium.launch();
-  // 動画保存をオフにして、シンプルに起動します
   const context = await browser.newContext({
     viewport: { width: 1280, height: 720 }
   });
@@ -39,21 +38,34 @@ const axios = require('axios');
       await page.waitForLoadState('networkidle');
     }
 
-    // パターンB: ログイン画面（メール入力欄）が表示されているか確認
+    // パターンB: ログイン画面（メール・パスワード入力欄）が出た場合
     const emailInput = page.locator('input[name="email"]');
     if (await emailInput.isVisible()) {
-      console.log(`  => 🔑 ログイン画面を検知。ログイン情報を入力します。`);
+      console.log(`  => 🔑 ID/PASS入力画面を検知。情報を入力します。`);
       await emailInput.fill(process.env.SQUADBEYOND_ID);
       await page.locator('input[name="password"]').fill(process.env.SQUADBEYOND_PASS);
-      await page.getByRole('button', { name: 'ログイン' }).click();
-      await page.waitForNavigation();
-      
-      console.log(`  => ✅ ログイン成功。再度ターゲットURLへ移動します。`);
-      await page.goto(targetUrl);
+      // 最初のログインボタンをクリック
+      await page.getByRole('button', { name: 'ログイン' }).first().click();
       await page.waitForLoadState('networkidle');
-    } else {
-      console.log(`  => ✅ ログイン済み、または対象ページに直接アクセスできました。`);
     }
+
+    // パターンC: アカウント選択画面の「ログイン」ボタンが出た場合（← 今回追加した突破口！）
+    // メール入力欄はないが、「ログイン」というボタンだけが存在する場合
+    const secondLoginButton = page.getByRole('button', { name: 'ログイン', exact: true });
+    if (await secondLoginButton.isVisible()) {
+      console.log(`  => 🔄 アカウント選択画面を検知。追加の「ログイン」ボタンを押します。`);
+      await secondLoginButton.first().click();
+      
+      console.log(`  => ⏳ 画面遷移のため5秒待機します...`);
+      await page.waitForTimeout(5000); // ご指示通り5秒待つ
+      await page.waitForLoadState('networkidle');
+    }
+
+    // すべてのログインの壁を突破したら、念のためもう一度ターゲットURLへ移動して確実な状態にする
+    console.log(`  => ✅ ログインフロー突破。ターゲットURLを再度開きます。`);
+    await page.goto(targetUrl);
+    await page.waitForLoadState('networkidle');
+
 
     // [Step 2] フォルダ作成のための検索とメニュー操作
     console.log(`\n[Step 2] 検索窓に「木村」と入力して絞り込みます。`);
@@ -134,7 +146,6 @@ const axios = require('axios');
   } catch (error) {
     console.error(`\n❌ [Error] エラーが発生しました:\n`, error);
     
-    // エラーが起きた瞬間の画面をスクショ撮影（これでもう迷わない！）
     await page.screenshot({ path: 'error-screenshot.png', fullPage: true });
     console.log(`📸 エラー画面のスクリーンショットを保存しました。`);
 

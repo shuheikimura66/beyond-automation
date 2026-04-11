@@ -16,9 +16,8 @@ const axios = require('axios');
   const articleName = process.env.ARTICLE_NAME;
   const searchKeyword = process.env.SEARCH_KEYWORD;
   const targetArticle = process.env.TARGET_ARTICLE;
+  const deliveryUrl = process.env.DELIVERY_URL; // ★追加：M列の値を受け取る
   const gasUrl = process.env.GAS_WEBAPP_URL;
-
-  let entryUrl = "";
 
   try {
     console.log(`\n=========================================`);
@@ -29,7 +28,7 @@ const axios = require('axios');
     console.log(`\n[Step 1] ターゲットURLにアクセスします: ${targetUrl}`);
     await page.goto(targetUrl);
     await page.waitForLoadState('load');
-    await page.waitForTimeout(3000); // 念のため3秒
+    await page.waitForTimeout(3000);
 
     const loginLink = page.getByRole('link', { name: 'ログインページへ' });
     if (await loginLink.isVisible()) {
@@ -69,7 +68,7 @@ const axios = require('axios');
     // [Step 2] フォルダ作成のための検索とメニュー操作
     console.log(`\n[Step 2] 検索窓に「木村」と入力して絞り込みます。`);
     await page.locator('input[type="search"]').first().fill('木村');
-    await page.waitForTimeout(3000); // 検索反映待ち
+    await page.waitForTimeout(3000);
 
     console.log(`\n[Step 3] グループ名「${groupName}」のメニューを開きます。`);
     const groupRow = page.locator('div, li').filter({ hasText: groupName }).filter({ has: page.locator('button') }).last();
@@ -80,7 +79,7 @@ const axios = require('axios');
     const createFolderBtn = page.locator('.MuiPopover-root, [role="menu"]').getByText('フォルダ作成', { exact: true });
     await createFolderBtn.waitFor({ state: 'visible', timeout: 5000 });
     await createFolderBtn.hover();
-    await page.waitForTimeout(2000); // ホバー後も待つ
+    await page.waitForTimeout(2000);
     await createFolderBtn.click();
     
     console.log(`  => ⏳ モーダルが開くのを待機します...`);
@@ -131,7 +130,7 @@ const axios = require('axios');
     } else {
       await page.getByRole('textbox').last().fill(targetArticle);
     }
-    await page.waitForTimeout(3000); // 検索結果反映待ち
+    await page.waitForTimeout(3000);
     
     // [Step 10] 記事の複製操作
     console.log(`\n[Step 10] 該当記事のメニューを開き、「別フォルダへ複製」を選択します。`);
@@ -146,6 +145,7 @@ const axios = require('axios');
     await duplicateBtn.click();
     await page.waitForTimeout(3000);
 
+    // [Step 11] 複製設定の入力
     console.log(`\n[Step 11] 複製設定を入力中...`);
     console.log(`  - beyondページ名を入力します: ${targetArticle}`);
     const pageNameInput = page.getByRole('textbox', { name: 'beyondページ名', exact: true });
@@ -174,10 +174,23 @@ const axios = require('axios');
     }
     await page.getByRole('option', { name: accountName }).click();
     await page.waitForTimeout(2000);
+
+    // ★追加：配信URL設定（M列）の入力
+    if (deliveryUrl) {
+      console.log(`  - 配信URL設定を入力します: ${deliveryUrl}`);
+      // ご提示いただいたHTMLのプレースホルダーを頼りに確実に入力
+      const deliveryInput = page.getByPlaceholder('半角英数字,-,_が使えます');
+      await deliveryInput.waitFor({ state: 'visible', timeout: 5000 });
+      await deliveryInput.fill(deliveryUrl);
+      await page.waitForTimeout(2000);
+    } else {
+      console.log(`  - 配信URL設定は空欄のためスキップします。`);
+    }
     
+    // [Step 12] 複製の実行
     console.log(`\n[Step 12] 「複製する」をクリックして確定します。`);
     await page.getByRole('button', { name: '複製する' }).click();
-    await page.waitForTimeout(3000); // 警告ポップアップが出るのを待機
+    await page.waitForTimeout(3000); 
 
     console.log(`\n[Step 12.5] ⚠️ 警告ポップアップの「確認して複製を実行」をクリックします。`);
     const confirmBtn = page.getByText('確認して複製を実行');
@@ -190,53 +203,13 @@ const axios = require('axios');
     await page.waitForLoadState('load');
     await page.waitForTimeout(5000);
 
-    // ★ご提案の通り、見えない壁を消すためにF5リロード！
-    console.log(`  => 🔄 画面を更新(F5)してリセットします。`);
-    await page.reload();
-    await page.waitForLoadState('load');
-    await page.waitForTimeout(5000);
-
-    // [Step 13] 最終URL取得処理
-    console.log(`\n[Step 13] 作成したフォルダ「${accountName}」を再検索して移動します。`);
-    const searchInputAgain = page.locator('input[type="search"]').first();
-    await searchInputAgain.click();
-    await page.waitForTimeout(2000);
-    await searchInputAgain.fill(''); // 一度確実にクリア
-    await page.waitForTimeout(2000);
-    
-    // ★バグ対策：1文字ずつ確実に入力して上書きバグを防ぐ！
-    await searchInputAgain.pressSequentially(accountName, { delay: 50 });
-    await page.waitForTimeout(4000); // 検索結果が出るのを待つ
-    
-    console.log(`  => グループ「${groupName}」を開きます（閉じている場合のため）。`);
-    const groupRowAfterReload = page.locator('div, li').filter({ hasText: groupName }).filter({ has: page.locator('button') }).last();
-    if (await groupRowAfterReload.isVisible()) {
-        await groupRowAfterReload.click();
-        await page.waitForTimeout(3000);
-    }
-
-    console.log(`  => フォルダ「${accountName}」を開きます。`);
-    const finalFolderText = page.getByText(accountName, { exact: true }).last();
-    await finalFolderText.click();
-    await page.waitForLoadState('load');
-    await page.waitForTimeout(3000);
-
-    console.log(`\n[Step 14] 複製された記事のメニューから、入稿用URLを取得します。`);
-    const resultArticleRow = page.locator('div, li').filter({ hasText: targetArticle }).filter({ has: page.locator('button') }).last();
-    // ご指示の通り、記事の右端（★の左）にあるメニューボタン（⋮）をクリック
-    await resultArticleRow.locator('button').nth(-2).click();
-    await page.waitForTimeout(3000);
-
-    entryUrl = await page.evaluate(() => {
-        const input = document.querySelector('input[readonly]');
-        return input ? input.value : location.href;
-    });
-    console.log(`  => 🎯 取得成功URL: ${entryUrl}`);
+    // 旧 Step 13, 14（URL取得処理）は削除しました！
 
     // [Step 15] GASへの書き戻し
-    console.log(`\n[Step 15] 取得したURLをGASへ送信（報告）します。`);
+    console.log(`\n[Step 13] GASへ完了報告を送信します。`);
     if (gasUrl) {
-      await axios.post(gasUrl, { row_idx: rowIdx, entry_url: entryUrl, status: 'success' });
+      // URLを取得しないため、entry_urlには「複製完了」というメッセージを入れています
+      await axios.post(gasUrl, { row_idx: rowIdx, entry_url: "複製完了", status: 'success' });
     }
 
     console.log(`\n🎉 RPA処理が正常に完了しました！`);

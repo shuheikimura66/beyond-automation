@@ -87,6 +87,7 @@ const axios = require('axios');
 
     // [Step 5] フォルダ作成情報の入力
     console.log(`\n[Step 5] フォルダ作成情報を入力中...`);
+    
     console.log(`  - フォルダ名を入力: ${accountName}`);
     const folderNameInput = page.locator('label:has-text("フォルダ名")').locator('xpath=..').locator('input');
     await folderNameInput.waitFor({ state: 'visible', timeout: 5000 }); 
@@ -145,27 +146,41 @@ const axios = require('axios');
     await duplicateBtn.click();
     await page.waitForTimeout(3000);
 
-    // ★大改修：確実なプルダウン（コンボボックス）の操作
+    // ★大改修：確実なラベル指定による各項目の入力
     console.log(`\n[Step 11] 複製設定を入力中...`);
     
+    console.log(`  - beyondページ名を入力します: ${targetArticle}`);
+    const pageNameInput = page.locator('label').filter({ hasText: 'beyondページ名' }).locator('xpath=..').locator('input');
+    await pageNameInput.waitFor({ state: 'visible', timeout: 5000 });
+    await pageNameInput.fill(''); // 一度リセット
+    await page.waitForTimeout(500);
+    await pageNameInput.fill(targetArticle);
+    await page.waitForTimeout(1500);
+    
     console.log(`  - チームを「フルアウト」に設定します。`);
-    // 1番目のコンボボックス（チーム）をクリック
-    const teamCombobox = page.locator('input[role="combobox"]').first();
-    await teamCombobox.click();
-    await page.waitForTimeout(1000);
+    // 「チーム」というラベルの枠を直接クリック
+    const teamBox = page.locator('label').filter({ hasText: /^チーム$/ }).locator('xpath=..');
+    await teamBox.click();
+    await page.waitForTimeout(1500);
     await page.getByRole('option', { name: 'フルアウト' }).click();
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(1500);
     
     console.log(`  - 移動先フォルダを「${accountName}」に設定します。`);
-    // 最後のコンボボックス（フォルダ）に入力
-    const folderCombobox = page.locator('input[role="combobox"]').last();
-    await folderCombobox.fill(accountName);
-    await page.waitForTimeout(1500); // 候補が出るのを待つ
+    // 「フォルダ」というラベルの枠を直接クリック
+    const folderBox = page.locator('label').filter({ hasText: /^フォルダ$/ }).locator('xpath=..');
+    await folderBox.click();
+    await page.waitForTimeout(1500);
+    
+    // フォルダ名は数が多い可能性があるため、入力して絞り込む（inputが存在する場合）
+    const folderInput = folderBox.locator('input');
+    if (await folderInput.isVisible()) {
+      await folderInput.fill(accountName);
+      await page.waitForTimeout(1500);
+    }
     await page.getByRole('option', { name: accountName }).click();
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(1500);
     
     console.log(`\n[Step 12] 「複製する」をクリックして確定します。`);
-    // 右上の「複製する」ボタンを押す
     await page.getByRole('button', { name: '複製する' }).click();
     
     console.log(`  => ⏳ 記事複製後の処理を待機します...`);

@@ -180,38 +180,47 @@ const axios = require('axios');
     await page.getByRole('button', { name: '複製する' }).click();
     await page.waitForTimeout(2000); // 警告ポップアップが出るのを待機
 
-    // ★追加：確認ポップアップの「確認して複製を実行」をクリック
     console.log(`\n[Step 12.5] ⚠️ 警告ポップアップの「確認して複製を実行」をクリックします。`);
     const confirmBtn = page.getByText('確認して複製を実行');
-    // もしポップアップが出なかった場合のエラーを防ぐため、存在確認を挟む
     if (await confirmBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
         await confirmBtn.click();
         console.log(`  => ✅ 確認ポップアップを承認しました。`);
-    } else {
-        console.log(`  => (確認ポップアップは表示されませんでした)`);
     }
     
     console.log(`  => ⏳ 記事複製後の処理を待機します...`);
     await page.waitForLoadState('load');
     await page.waitForTimeout(5000);
 
+    // ★大改修：透明なバリア（ポップアップの残骸）を消し去るために画面をリフレッシュ！
+    console.log(`  => 🔄 画面を更新してリセットします。`);
+    await page.reload();
+    await page.waitForLoadState('load');
+    await page.waitForTimeout(5000); // リロード後はしっかり待つ
+
     // [Step 13] 最終URL取得処理
     console.log(`\n[Step 13] 作成したフォルダ「${accountName}」を再検索して移動します。`);
-    await page.locator('input[type="search"]').first().fill('');
-    await page.waitForTimeout(500);
-    await page.locator('input[type="search"]').first().fill(accountName);
-    await page.waitForTimeout(2000);
+    // リロードしたので念のため再度検索（必要ないかもしれないが確実を期すため）
+    const searchInputAgain = page.locator('input[type="search"]').first();
+    if (await searchInputAgain.isVisible()) {
+      await searchInputAgain.fill('');
+      await page.waitForTimeout(500);
+      await searchInputAgain.fill(accountName);
+      await page.waitForTimeout(2000);
+    }
     
-    const finalFolderRow = page.locator('div, li').filter({ hasText: accountName }).filter({ has: page.locator('button') }).last();
-    await finalFolderRow.click();
+    // ★大改修：フォルダ名の「文字（pタグ等）」を直接狙い撃ちしてクリック
+    const finalFolderText = page.getByText(accountName, { exact: true }).last();
+    await finalFolderText.click();
     await page.waitForLoadState('load');
     await page.waitForTimeout(3000);
 
     console.log(`\n[Step 14] 複製された記事のメニューから、入稿用URLを取得します。`);
+    // 記事が表示されたら、その行の右端にあるボタン（⋮）をクリック
     const resultArticleRow = page.locator('div, li').filter({ hasText: targetArticle }).filter({ has: page.locator('button') }).last();
     await resultArticleRow.locator('button').nth(-2).click();
     await page.waitForTimeout(2000);
 
+    // URL（入力欄）の取得
     entryUrl = await page.evaluate(() => {
         const input = document.querySelector('input[readonly]');
         return input ? input.value : location.href;

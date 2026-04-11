@@ -72,7 +72,7 @@ const axios = require('axios');
 
     console.log(`\n[Step 3] グループ名「${groupName}」のメニューを開きます。`);
     const groupRow = page.locator('div, li').filter({ hasText: groupName }).filter({ has: page.locator('button') }).last();
-    await groupRow.locator('button').last().click();
+    await groupRow.locator('button').last().click(); // 左メニューは一番右がメニューボタン
     await page.waitForTimeout(2000);
 
     console.log(`\n[Step 4] ポップアップメニューから「フォルダ作成」をクリックします。`);
@@ -119,20 +119,16 @@ const axios = require('axios');
     await page.getByText('原本グループ').click();
     await page.waitForTimeout(2000);
 
-    // ★追加: 対象のフォルダを開いて中身（記事）を表示させる
     console.log(`\n[Step 8.5] フォルダ「${searchKeyword}」をクリックして開きます。`);
     const targetFolderRow = page.locator('div, li').filter({ hasText: searchKeyword }).filter({ has: page.locator('button') }).last();
-    await targetFolderRow.click(); // コロンではなく行をクリックして中身を開く
-    await page.waitForTimeout(3000); // 記事リストが表示されるのを待機
+    await targetFolderRow.click();
+    await page.waitForTimeout(3000);
 
     console.log(`\n[Step 9] 記事名「${targetArticle}」を検索します。`);
-    // ★修正: プレースホルダーではなく、ラベルテキストから確実にinputを探し出す
     const articleSearchInput = page.locator('label').filter({ hasText: '媒体/名前検索' }).locator('xpath=..').locator('input').first();
-    
     if (await articleSearchInput.isVisible()) {
       await articleSearchInput.fill(targetArticle);
     } else {
-      // 見つからなかった場合の最終手段（右上の検索窓を直撃）
       await page.getByRole('textbox').last().fill(targetArticle);
     }
     await page.waitForTimeout(2000);
@@ -140,7 +136,8 @@ const axios = require('axios');
     // [Step 10] 記事の複製操作
     console.log(`\n[Step 10] 該当記事のメニューを開き、「別フォルダへ複製」を選択します。`);
     const articleRow = page.locator('div, li').filter({ hasText: targetArticle }).filter({ has: page.locator('button') }).last();
-    await articleRow.locator('button').last().click();
+    // ★修正ポイント：記事行では「メニュー(⋮)」の右に「お気に入り(★)」があるため、右から2番目のボタンを狙う
+    await articleRow.locator('button').nth(-2).click(); 
     await page.waitForTimeout(2000);
     
     const duplicateBtn = page.locator('.MuiPopover-root, [role="menu"]').getByText('別フォルダへ複製', { exact: true });
@@ -179,7 +176,6 @@ const axios = require('axios');
     await page.locator('input[type="search"]').first().fill(accountName);
     await page.waitForTimeout(2000);
     
-    // 作成したフォルダをクリックして開く
     const finalFolderRow = page.locator('div, li').filter({ hasText: accountName }).filter({ has: page.locator('button') }).last();
     await finalFolderRow.click();
     await page.waitForLoadState('load');
@@ -187,7 +183,8 @@ const axios = require('axios');
 
     console.log(`\n[Step 14] 複製された記事のメニューから、入稿用URLを取得します。`);
     const resultArticleRow = page.locator('div, li').filter({ hasText: targetArticle }).filter({ has: page.locator('button') }).last();
-    await resultArticleRow.locator('button').last().click();
+    // ★ここも同様に右から2番目のボタン(⋮)を狙う
+    await resultArticleRow.locator('button').nth(-2).click();
     await page.waitForTimeout(2000);
 
     entryUrl = await page.evaluate(() => {

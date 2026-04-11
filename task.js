@@ -104,10 +104,9 @@ const axios = require('axios');
     await page.locator('.MuiPopover-root, [role="menu"]').getByText('別フォルダへ複製', { exact: true }).click();
     await page.waitForTimeout(3000);
 
-    // ★ Step 11: 複製設定（超重要：確実に選択するロジック）
+    // ★ Step 11: 複製設定（洗練版：フォルダを直接検索）
     console.log(`\n[Step 11] 複製設定を入力します。`);
 
-    // beyondページ名（復活！）
     console.log(`  - beyondページ名を入力します: ${targetArticle}`);
     const pageNameInput = page.getByRole('textbox', { name: 'beyondページ名', exact: true });
     await pageNameInput.waitFor({ state: 'visible', timeout: 5000 });
@@ -116,35 +115,23 @@ const axios = require('axios');
     await pageNameInput.pressSequentially(targetArticle, { delay: 50 });
     await page.waitForTimeout(1000);
     
-    // チーム選択
+    console.log(`  - チームを「フルアウト」に設定します。`);
     const teamBox = page.locator('label').filter({ hasText: /^チーム$/ }).locator('xpath=..');
     await teamBox.click();
     await page.waitForTimeout(1000);
     await page.getByRole('option', { name: 'フルアウト' }).click();
     await page.waitForTimeout(1000);
 
-    // フォルダグループ選択
-    console.log(`  - フォルダグループ「${groupName}」を選択します。`);
-    const groupFolderBox = page.locator('label').filter({ hasText: /^フォルダグループ$/ }).locator('xpath=..');
-    await groupFolderBox.click();
-    await page.waitForTimeout(500);
-    const groupInput = groupFolderBox.locator('input');
-    await groupInput.fill('');
-    await page.waitForTimeout(500);
-    await groupInput.pressSequentially(groupName, { delay: 50 }); // 確実に入力
-    await page.waitForTimeout(2000);
-    await page.getByRole('option', { name: groupName }).first().click();
-    await page.waitForTimeout(1000);
-    
-    // 移動先フォルダ選択（最大の原因箇所を修正）
-    console.log(`  - 移動先フォルダ「${accountName}」を確実に入力・選択します。`);
+    // 💡 エラーの元凶だった「フォルダグループの検索」は完全に削除しました！
+
+    console.log(`  - 移動先フォルダ「${accountName}」を直接検索・選択します。`);
     const folderBox = page.locator('label').filter({ hasText: /^フォルダ$/ }).locator('xpath=..');
     await folderBox.click();
     await page.waitForTimeout(500);
     const folderInput = folderBox.locator('input');
     await folderInput.fill('');
     await page.waitForTimeout(500);
-    await folderInput.pressSequentially(accountName, { delay: 50 }); // 1文字ずつ打って確実に絞り込む
+    await folderInput.pressSequentially(accountName, { delay: 50 }); // フォルダ名を直接1文字ずつ検索
     await page.waitForTimeout(3000); // 候補が出るのを待つ
 
     const option = page.getByRole('option').filter({ hasText: accountName }).first();
@@ -158,7 +145,6 @@ const axios = require('axios');
     }
     await page.waitForTimeout(1000);
 
-    // 配信URL
     if (deliveryUrl) {
       console.log(`  - 配信URL設定を入力します: ${deliveryUrl}`);
       const deliveryInput = page.getByPlaceholder('半角英数字,-,_が使えます');
@@ -180,13 +166,11 @@ const axios = require('axios');
     await page.waitForTimeout(1000);
     await confirmBtn.click();
     
-    // 画面からモーダルが完全に消えるまで待機（URL重複エラーなどが出た場合はここで止まり、タイムアウトエラーになります）
     console.log(`  => ⏳ 複製処理の完了を待機しています...`);
     await confirmBtn.waitFor({ state: 'hidden', timeout: 30000 });
     console.log(`  => ✅ 複製完了！ポップアップが閉じました。`);
-    await page.waitForTimeout(5000); // 念のため余韻を待つ
+    await page.waitForTimeout(5000); 
 
-    // 最終的な画面の状態を撮影（デバッグ用）
     await page.screenshot({ path: 'final-check.png', fullPage: true });
     console.log(`📸 最終確認画面のスクリーンショットを保存しました。`);
 

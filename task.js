@@ -66,14 +66,11 @@ const axios = require('axios');
 
     // ★大改修ポイント①: メニューボタンを確実に射抜く
     console.log(`\n[Step 3] グループ名「${groupName}」のメニューを開きます。`);
-    // 画面に複数ある場合（お気に入り等）を避け、一番下の「グループリスト」側をターゲットにする
-    const targetGroup = page.getByText(groupName).last();
-    // テキスト要素から親（行の枠）に遡り、その中にある最後のボタン（⋮）をクリック
-    const groupMenuBtn = targetGroup.locator('xpath=ancestor::*[button][1]').locator('button').last();
-    await groupMenuBtn.click();
-    await page.waitForTimeout(1000); // メニュー展開待ち
+    // 「グループ名」を含み、かつ「ボタン」を持っている要素(行全体)を探し、その最後のボタン(⋮)をクリック
+    const groupRow = page.locator('div, li').filter({ hasText: groupName }).filter({ has: page.locator('button') }).last();
+    await groupRow.locator('button').last().click();
+    await page.waitForTimeout(1000);
 
-    // ★大改修ポイント②: 確実にポップアップの中の「フォルダ作成」だけを押す
     console.log(`\n[Step 4] ポップアップメニューから「フォルダ作成」をクリックします。`);
     await page.locator('.MuiPopover-root, [role="menu"]').getByText('フォルダ作成', { exact: true }).click();
     await page.waitForTimeout(1000);
@@ -108,11 +105,10 @@ const axios = require('axios');
     await page.waitForTimeout(1500);
     
     // [Step 5] 記事の複製操作
-    // グループ名と同じく、記事メニューも確実に開くように修正
     console.log(`\n[Step 10] 該当記事のメニューを開き、「別フォルダへ複製」を選択します。`);
-    const targetArticleNode = page.getByText(targetArticle).last();
-    const articleMenuBtn = targetArticleNode.locator('xpath=ancestor::*[button][1]').locator('button').last();
-    await articleMenuBtn.click();
+    // 記事メニューも同様に、行全体を特定してから最後のボタンをクリック
+    const articleRow = page.locator('div, li').filter({ hasText: targetArticle }).filter({ has: page.locator('button') }).last();
+    await articleRow.locator('button').last().click();
     await page.waitForTimeout(1000);
     
     await page.locator('.MuiPopover-root, [role="menu"]').getByText('別フォルダへ複製', { exact: true }).click();
@@ -141,9 +137,9 @@ const axios = require('axios');
     await page.waitForTimeout(1500);
 
     console.log(`\n[Step 14] 複製された記事のメニューから、入稿用URLを取得します。`);
-    const resultArticleNode = page.getByText(targetArticle).last();
-    const resultMenuBtn = resultArticleNode.locator('xpath=ancestor::*[button][1]').locator('button').last();
-    await resultMenuBtn.click();
+    // 入稿URL取得時も同じく行全体から特定
+    const resultArticleRow = page.locator('div, li').filter({ hasText: targetArticle }).filter({ has: page.locator('button') }).last();
+    await resultArticleRow.locator('button').last().click();
     await page.waitForTimeout(1000);
 
     entryUrl = await page.evaluate(() => {

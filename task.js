@@ -146,11 +146,9 @@ const axios = require('axios');
     await duplicateBtn.click();
     await page.waitForTimeout(3000);
 
-    // ★大改修：厳密な指定による各項目の入力
     console.log(`\n[Step 11] 複製設定を入力中...`);
     
     console.log(`  - beyondページ名を入力します: ${targetArticle}`);
-    // ★修正：検索窓の「グループ/フォルダ/ドメイン/beyondページ名」と混同しないように厳密指定
     const pageNameInput = page.getByRole('textbox', { name: 'beyondページ名', exact: true });
     await pageNameInput.waitFor({ state: 'visible', timeout: 5000 });
     await pageNameInput.fill(''); // 一度リセット
@@ -180,6 +178,18 @@ const axios = require('axios');
     
     console.log(`\n[Step 12] 「複製する」をクリックして確定します。`);
     await page.getByRole('button', { name: '複製する' }).click();
+    await page.waitForTimeout(2000); // 警告ポップアップが出るのを待機
+
+    // ★追加：確認ポップアップの「確認して複製を実行」をクリック
+    console.log(`\n[Step 12.5] ⚠️ 警告ポップアップの「確認して複製を実行」をクリックします。`);
+    const confirmBtn = page.getByText('確認して複製を実行');
+    // もしポップアップが出なかった場合のエラーを防ぐため、存在確認を挟む
+    if (await confirmBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await confirmBtn.click();
+        console.log(`  => ✅ 確認ポップアップを承認しました。`);
+    } else {
+        console.log(`  => (確認ポップアップは表示されませんでした)`);
+    }
     
     console.log(`  => ⏳ 記事複製後の処理を待機します...`);
     await page.waitForLoadState('load');

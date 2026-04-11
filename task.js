@@ -16,7 +16,7 @@ const axios = require('axios');
   const articleName = process.env.ARTICLE_NAME;
   const searchKeyword = process.env.SEARCH_KEYWORD;
   const targetArticle = process.env.TARGET_ARTICLE;
-  const deliveryUrl = process.env.DELIVERY_URL; // ★追加：M列の値を受け取る
+  const deliveryUrl = process.env.DELIVERY_URL; 
   const gasUrl = process.env.GAS_WEBAPP_URL;
 
   try {
@@ -145,7 +145,6 @@ const axios = require('axios');
     await duplicateBtn.click();
     await page.waitForTimeout(3000);
 
-    // [Step 11] 複製設定の入力
     console.log(`\n[Step 11] 複製設定を入力中...`);
     console.log(`  - beyondページ名を入力します: ${targetArticle}`);
     const pageNameInput = page.getByRole('textbox', { name: 'beyondページ名', exact: true });
@@ -175,19 +174,14 @@ const axios = require('axios');
     await page.getByRole('option', { name: accountName }).click();
     await page.waitForTimeout(2000);
 
-    // ★追加：配信URL設定（M列）の入力
     if (deliveryUrl) {
       console.log(`  - 配信URL設定を入力します: ${deliveryUrl}`);
-      // ご提示いただいたHTMLのプレースホルダーを頼りに確実に入力
       const deliveryInput = page.getByPlaceholder('半角英数字,-,_が使えます');
       await deliveryInput.waitFor({ state: 'visible', timeout: 5000 });
       await deliveryInput.fill(deliveryUrl);
       await page.waitForTimeout(2000);
-    } else {
-      console.log(`  - 配信URL設定は空欄のためスキップします。`);
     }
     
-    // [Step 12] 複製の実行
     console.log(`\n[Step 12] 「複製する」をクリックして確定します。`);
     await page.getByRole('button', { name: '複製する' }).click();
     await page.waitForTimeout(3000); 
@@ -203,13 +197,10 @@ const axios = require('axios');
     await page.waitForLoadState('load');
     await page.waitForTimeout(5000);
 
-    // 旧 Step 13, 14（URL取得処理）は削除しました！
-
-    // [Step 15] GASへの書き戻し
     console.log(`\n[Step 13] GASへ完了報告を送信します。`);
     if (gasUrl) {
-      // URLを取得しないため、entry_urlには「複製完了」というメッセージを入れています
-      await axios.post(gasUrl, { row_idx: rowIdx, entry_url: "複製完了", status: 'success' });
+      // ★ダミーテキストを空にしておきます
+      await axios.post(gasUrl, { row_idx: rowIdx, entry_url: "", status: 'success' });
     }
 
     console.log(`\n🎉 RPA処理が正常に完了しました！`);

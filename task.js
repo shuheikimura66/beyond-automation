@@ -64,22 +64,26 @@ const axios = require('axios');
     await page.locator('input[type="search"]').first().fill('木村');
     await page.waitForTimeout(1500);
 
-    // ★大改修ポイント①: メニューボタンを確実に射抜く
     console.log(`\n[Step 3] グループ名「${groupName}」のメニューを開きます。`);
-    // 「グループ名」を含み、かつ「ボタン」を持っている要素(行全体)を探し、その最後のボタン(⋮)をクリック
     const groupRow = page.locator('div, li').filter({ hasText: groupName }).filter({ has: page.locator('button') }).last();
     await groupRow.locator('button').last().click();
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(1000); // メニューのアニメーション待機
 
+    // ★修正ポイント①：メニューアイテムとして確実に取得し、表示されるまで待つ
     console.log(`\n[Step 4] ポップアップメニューから「フォルダ作成」をクリックします。`);
-    await page.locator('.MuiPopover-root, [role="menu"]').getByText('フォルダ作成', { exact: true }).click();
-    await page.waitForTimeout(1000);
+    const createFolderBtn = page.getByRole('menuitem', { name: 'フォルダ作成' });
+    await createFolderBtn.waitFor({ state: 'visible', timeout: 5000 });
+    await createFolderBtn.click();
+    
+    // モーダルが完全に開くまで少し長めに待つ
+    await page.waitForTimeout(2000); 
 
     // [Step 3] フォルダ作成情報の入力
     console.log(`\n[Step 5] フォルダ作成情報を入力中...`);
     
     console.log(`  - フォルダ名を入力: ${accountName}`);
     const folderNameInput = page.locator('label:has-text("フォルダ名")').locator('xpath=..').locator('input');
+    await folderNameInput.waitFor({ state: 'visible', timeout: 5000 }); // モーダル内の要素が出現したか確認
     await folderNameInput.fill(accountName);
     await page.keyboard.press('Escape'); 
     
@@ -106,13 +110,15 @@ const axios = require('axios');
     
     // [Step 5] 記事の複製操作
     console.log(`\n[Step 10] 該当記事のメニューを開き、「別フォルダへ複製」を選択します。`);
-    // 記事メニューも同様に、行全体を特定してから最後のボタンをクリック
     const articleRow = page.locator('div, li').filter({ hasText: targetArticle }).filter({ has: page.locator('button') }).last();
     await articleRow.locator('button').last().click();
     await page.waitForTimeout(1000);
     
-    await page.locator('.MuiPopover-root, [role="menu"]').getByText('別フォルダへ複製', { exact: true }).click();
-    await page.waitForTimeout(1500);
+    // ★修正ポイント②：記事のメニューも同様に確実にクリック
+    const duplicateBtn = page.getByRole('menuitem', { name: '別フォルダへ複製' });
+    await duplicateBtn.waitFor({ state: 'visible', timeout: 5000 });
+    await duplicateBtn.click();
+    await page.waitForTimeout(2000); // 複製モーダルの出現待ち
 
     console.log(`\n[Step 11] 複製設定を入力中...`);
     await page.locator('input[type="text"].MuiFilledInput-input').first().fill(targetArticle);
@@ -137,7 +143,6 @@ const axios = require('axios');
     await page.waitForTimeout(1500);
 
     console.log(`\n[Step 14] 複製された記事のメニューから、入稿用URLを取得します。`);
-    // 入稿URL取得時も同じく行全体から特定
     const resultArticleRow = page.locator('div, li').filter({ hasText: targetArticle }).filter({ has: page.locator('button') }).last();
     await resultArticleRow.locator('button').last().click();
     await page.waitForTimeout(1000);

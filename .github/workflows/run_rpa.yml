@@ -35,6 +35,7 @@ jobs:
           ARTICLE_NAME: ${{ github.event.client_payload.article_name }}
           SEARCH_KEYWORD: ${{ github.event.client_payload.search_keyword }}
           TARGET_ARTICLE: ${{ github.event.client_payload.target_article }}
+          DELIVERY_URL: ${{ github.event.client_payload.delivery_url }} 
         run: node task.js
 
       - name: Upload Error Screenshot

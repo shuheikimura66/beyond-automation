@@ -72,7 +72,7 @@ const axios = require('axios');
 
     console.log(`\n[Step 3] グループ名「${groupName}」のメニューを開きます。`);
     const groupRow = page.locator('div, li').filter({ hasText: groupName }).filter({ has: page.locator('button') }).last();
-    await groupRow.locator('button').last().click(); // 左メニューは一番右がメニューボタン
+    await groupRow.locator('button').last().click();
     await page.waitForTimeout(2000);
 
     console.log(`\n[Step 4] ポップアップメニューから「フォルダ作成」をクリックします。`);
@@ -87,7 +87,6 @@ const axios = require('axios');
 
     // [Step 5] フォルダ作成情報の入力
     console.log(`\n[Step 5] フォルダ作成情報を入力中...`);
-    
     console.log(`  - フォルダ名を入力: ${accountName}`);
     const folderNameInput = page.locator('label:has-text("フォルダ名")').locator('xpath=..').locator('input');
     await folderNameInput.waitFor({ state: 'visible', timeout: 5000 }); 
@@ -136,7 +135,6 @@ const axios = require('axios');
     // [Step 10] 記事の複製操作
     console.log(`\n[Step 10] 該当記事のメニューを開き、「別フォルダへ複製」を選択します。`);
     const articleRow = page.locator('div, li').filter({ hasText: targetArticle }).filter({ has: page.locator('button') }).last();
-    // ★修正ポイント：記事行では「メニュー(⋮)」の右に「お気に入り(★)」があるため、右から2番目のボタンを狙う
     await articleRow.locator('button').nth(-2).click(); 
     await page.waitForTimeout(2000);
     
@@ -147,22 +145,27 @@ const axios = require('axios');
     await duplicateBtn.click();
     await page.waitForTimeout(3000);
 
+    // ★大改修：確実なプルダウン（コンボボックス）の操作
     console.log(`\n[Step 11] 複製設定を入力中...`);
-    await page.locator('input[type="text"].MuiFilledInput-input').first().fill(targetArticle);
-    await page.waitForTimeout(1000);
     
-    await page.getByRole('button', { name: /​/ }).click();
+    console.log(`  - チームを「フルアウト」に設定します。`);
+    // 1番目のコンボボックス（チーム）をクリック
+    const teamCombobox = page.locator('input[role="combobox"]').first();
+    await teamCombobox.click();
     await page.waitForTimeout(1000);
     await page.getByRole('option', { name: 'フルアウト' }).click();
     await page.waitForTimeout(1000);
     
     console.log(`  - 移動先フォルダを「${accountName}」に設定します。`);
-    await page.locator('input[role="combobox"]').last().fill(accountName);
-    await page.waitForTimeout(1000);
+    // 最後のコンボボックス（フォルダ）に入力
+    const folderCombobox = page.locator('input[role="combobox"]').last();
+    await folderCombobox.fill(accountName);
+    await page.waitForTimeout(1500); // 候補が出るのを待つ
     await page.getByRole('option', { name: accountName }).click();
     await page.waitForTimeout(1000);
     
     console.log(`\n[Step 12] 「複製する」をクリックして確定します。`);
+    // 右上の「複製する」ボタンを押す
     await page.getByRole('button', { name: '複製する' }).click();
     
     console.log(`  => ⏳ 記事複製後の処理を待機します...`);
@@ -183,7 +186,6 @@ const axios = require('axios');
 
     console.log(`\n[Step 14] 複製された記事のメニューから、入稿用URLを取得します。`);
     const resultArticleRow = page.locator('div, li').filter({ hasText: targetArticle }).filter({ has: page.locator('button') }).last();
-    // ★ここも同様に右から2番目のボタン(⋮)を狙う
     await resultArticleRow.locator('button').nth(-2).click();
     await page.waitForTimeout(2000);
 

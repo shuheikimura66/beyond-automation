@@ -78,7 +78,6 @@ const axios = require('axios');
     console.log(`\n[Step 4] ポップアップメニューから「フォルダ作成」をクリックします。`);
     const createFolderBtn = page.locator('.MuiPopover-root, [role="menu"]').getByText('フォルダ作成', { exact: true });
     await createFolderBtn.waitFor({ state: 'visible', timeout: 5000 });
-    // マウスを乗せてからクリックする（より確実な操作）
     await createFolderBtn.hover();
     await page.waitForTimeout(500);
     await createFolderBtn.click();
@@ -94,10 +93,8 @@ const axios = require('axios');
     await folderNameInput.waitFor({ state: 'visible', timeout: 5000 }); 
     await folderNameInput.fill(accountName);
     await page.waitForTimeout(1000);
-    // 【修正】ポップアップが消える原因だった Escape キーの自爆を削除！
     
     console.log(`  - ドメインを選択: ${domain}`);
-    // 【修正】より確実にドメインの枠（親要素）をクリックするように変更
     const domainLabelBox = page.locator('label:has-text("認証済み独自ドメイン")').locator('xpath=..');
     await domainLabelBox.click();
     await page.waitForTimeout(1000);
@@ -122,8 +119,22 @@ const axios = require('axios');
     await page.getByText('原本グループ').click();
     await page.waitForTimeout(2000);
 
+    // ★追加: 対象のフォルダを開いて中身（記事）を表示させる
+    console.log(`\n[Step 8.5] フォルダ「${searchKeyword}」をクリックして開きます。`);
+    const targetFolderRow = page.locator('div, li').filter({ hasText: searchKeyword }).filter({ has: page.locator('button') }).last();
+    await targetFolderRow.click(); // コロンではなく行をクリックして中身を開く
+    await page.waitForTimeout(3000); // 記事リストが表示されるのを待機
+
     console.log(`\n[Step 9] 記事名「${targetArticle}」を検索します。`);
-    await page.getByPlaceholder('媒体/名前検索').fill(targetArticle);
+    // ★修正: プレースホルダーではなく、ラベルテキストから確実にinputを探し出す
+    const articleSearchInput = page.locator('label').filter({ hasText: '媒体/名前検索' }).locator('xpath=..').locator('input').first();
+    
+    if (await articleSearchInput.isVisible()) {
+      await articleSearchInput.fill(targetArticle);
+    } else {
+      // 見つからなかった場合の最終手段（右上の検索窓を直撃）
+      await page.getByRole('textbox').last().fill(targetArticle);
+    }
     await page.waitForTimeout(2000);
     
     // [Step 10] 記事の複製操作
@@ -168,7 +179,9 @@ const axios = require('axios');
     await page.locator('input[type="search"]').first().fill(accountName);
     await page.waitForTimeout(2000);
     
-    await page.getByText(accountName, { exact: true }).click();
+    // 作成したフォルダをクリックして開く
+    const finalFolderRow = page.locator('div, li').filter({ hasText: accountName }).filter({ has: page.locator('button') }).last();
+    await finalFolderRow.click();
     await page.waitForLoadState('load');
     await page.waitForTimeout(3000);
 

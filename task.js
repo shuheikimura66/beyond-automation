@@ -29,21 +29,26 @@ const axios = require('axios');
     console.log(`\n[Step 1] ターゲットURLにアクセスします: ${targetUrl}`);
     await page.goto(targetUrl);
     await page.waitForLoadState('load');
+    await page.waitForTimeout(2000); // 画面安定待ち
 
     const loginLink = page.getByRole('link', { name: 'ログインページへ' });
     if (await loginLink.isVisible()) {
       console.log(`  => ⚠️ セッション切れを検知。「ログインページへ」進みます。`);
       await loginLink.click();
       await page.waitForLoadState('load');
+      await page.waitForTimeout(2000);
     }
 
     const emailInput = page.locator('input[name="email"]');
     if (await emailInput.isVisible()) {
       console.log(`  => 🔑 ID/PASS入力画面を検知。情報を入力します。`);
       await emailInput.fill(process.env.SQUADBEYOND_ID);
+      await page.waitForTimeout(500);
       await page.locator('input[name="password"]').fill(process.env.SQUADBEYOND_PASS);
+      await page.waitForTimeout(500);
       await page.getByRole('button', { name: 'ログイン' }).first().click();
       await page.waitForLoadState('load');
+      await page.waitForTimeout(2000);
     }
 
     const secondLoginButton = page.getByRole('button', { name: 'ログイン', exact: true });
@@ -58,94 +63,114 @@ const axios = require('axios');
     console.log(`  => ✅ ログインフロー突破。ターゲットURLを再度開きます。`);
     await page.goto(targetUrl);
     await page.waitForLoadState('load');
+    await page.waitForTimeout(3000); // 最初の画面は重いので長めに待つ
 
     // [Step 2] フォルダ作成のための検索とメニュー操作
     console.log(`\n[Step 2] 検索窓に「木村」と入力して絞り込みます。`);
     await page.locator('input[type="search"]').first().fill('木村');
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(2000); // 入力後の検索結果反映をしっかり待つ
 
     console.log(`\n[Step 3] グループ名「${groupName}」のメニューを開きます。`);
     const groupRow = page.locator('div, li').filter({ hasText: groupName }).filter({ has: page.locator('button') }).last();
     await groupRow.locator('button').last().click();
-    await page.waitForTimeout(1000); // メニューのアニメーション待機
+    await page.waitForTimeout(2000); // メニューが完全に開くのを待つ
 
-    // ★修正ポイント①：メニューアイテムとして確実に取得し、表示されるまで待つ
     console.log(`\n[Step 4] ポップアップメニューから「フォルダ作成」をクリックします。`);
-    const createFolderBtn = page.getByRole('menuitem', { name: 'フォルダ作成' });
+    // 確実にメニューアイテムを取得してクリック
+    const createFolderBtn = page.locator('.MuiPopover-root, [role="menu"]').getByText('フォルダ作成', { exact: true });
     await createFolderBtn.waitFor({ state: 'visible', timeout: 5000 });
     await createFolderBtn.click();
     
-    // モーダルが完全に開くまで少し長めに待つ
-    await page.waitForTimeout(2000); 
+    console.log(`  => ⏳ モーダルが開くのを待機します...`);
+    await page.waitForTimeout(3000); // モーダル（白いポップアップ）がドーンと出るのを待つ
 
-    // [Step 3] フォルダ作成情報の入力
+    // [Step 5] フォルダ作成情報の入力
     console.log(`\n[Step 5] フォルダ作成情報を入力中...`);
     
     console.log(`  - フォルダ名を入力: ${accountName}`);
     const folderNameInput = page.locator('label:has-text("フォルダ名")').locator('xpath=..').locator('input');
-    await folderNameInput.waitFor({ state: 'visible', timeout: 5000 }); // モーダル内の要素が出現したか確認
+    await folderNameInput.waitFor({ state: 'visible', timeout: 5000 }); 
     await folderNameInput.fill(accountName);
+    await page.waitForTimeout(1000);
     await page.keyboard.press('Escape'); 
+    await page.waitForTimeout(1000);
     
     console.log(`  - ドメインを選択: ${domain}`);
     await page.getByLabel('認証済み独自ドメイン').click();
+    await page.waitForTimeout(1000); // ドメインのプルダウンが開くのを待つ
     await page.getByRole('option', { name: domain }).click();
+    await page.waitForTimeout(1000);
     
     console.log(`\n[Step 6] 「作成する」ボタンを押してフォルダを確定します。`);
     await page.getByRole('button', { name: '作成する' }).click();
+    
+    console.log(`  => ⏳ フォルダ作成後の画面反映を待機します...`);
     await page.waitForLoadState('load');
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(5000); // 作成処理は重い可能性が高いので長めに待機
 
-    // [Step 4] 記事の検索
+    // [Step 7] 記事の検索
     console.log(`\n[Step 7] 検索窓にキーワード「${searchKeyword}」を入力します。`);
+    await page.locator('input[type="search"]').first().fill(''); // 一度クリア
+    await page.waitForTimeout(500);
     await page.locator('input[type="search"]').first().fill(searchKeyword);
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(2000);
 
     console.log(`\n[Step 8] 「原本グループ」をクリックします。`);
     await page.getByText('原本グループ').click();
+    await page.waitForTimeout(2000);
 
     console.log(`\n[Step 9] 記事名「${targetArticle}」を検索します。`);
     await page.getByPlaceholder('媒体/名前検索').fill(targetArticle);
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(2000);
     
-    // [Step 5] 記事の複製操作
+    // [Step 10] 記事の複製操作
     console.log(`\n[Step 10] 該当記事のメニューを開き、「別フォルダへ複製」を選択します。`);
     const articleRow = page.locator('div, li').filter({ hasText: targetArticle }).filter({ has: page.locator('button') }).last();
     await articleRow.locator('button').last().click();
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(2000);
     
-    // ★修正ポイント②：記事のメニューも同様に確実にクリック
-    const duplicateBtn = page.getByRole('menuitem', { name: '別フォルダへ複製' });
+    const duplicateBtn = page.locator('.MuiPopover-root, [role="menu"]').getByText('別フォルダへ複製', { exact: true });
     await duplicateBtn.waitFor({ state: 'visible', timeout: 5000 });
     await duplicateBtn.click();
-    await page.waitForTimeout(2000); // 複製モーダルの出現待ち
+    await page.waitForTimeout(3000); // 複製モーダルが開くのを待つ
 
     console.log(`\n[Step 11] 複製設定を入力中...`);
     await page.locator('input[type="text"].MuiFilledInput-input').first().fill(targetArticle);
+    await page.waitForTimeout(1000);
     
     await page.getByRole('button', { name: /​/ }).click();
+    await page.waitForTimeout(1000);
     await page.getByRole('option', { name: 'フルアウト' }).click();
+    await page.waitForTimeout(1000);
     
     console.log(`  - 移動先フォルダを「${accountName}」に設定します。`);
     await page.locator('input[role="combobox"]').last().fill(accountName);
+    await page.waitForTimeout(1000);
     await page.getByRole('option', { name: accountName }).click();
+    await page.waitForTimeout(1000);
     
     console.log(`\n[Step 12] 「複製する」をクリックして確定します。`);
     await page.getByRole('button', { name: '複製する' }).click();
+    
+    console.log(`  => ⏳ 記事複製後の処理を待機します...`);
     await page.waitForLoadState('load');
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(5000);
 
-    // [Step 6] 最終URL取得処理
+    // [Step 13] 最終URL取得処理
     console.log(`\n[Step 13] 作成したフォルダ「${accountName}」を再検索して移動します。`);
+    await page.locator('input[type="search"]').first().fill('');
+    await page.waitForTimeout(500);
     await page.locator('input[type="search"]').first().fill(accountName);
+    await page.waitForTimeout(2000);
+    
     await page.getByText(accountName, { exact: true }).click();
     await page.waitForLoadState('load');
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(3000);
 
     console.log(`\n[Step 14] 複製された記事のメニューから、入稿用URLを取得します。`);
     const resultArticleRow = page.locator('div, li').filter({ hasText: targetArticle }).filter({ has: page.locator('button') }).last();
     await resultArticleRow.locator('button').last().click();
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(2000);
 
     entryUrl = await page.evaluate(() => {
         const input = document.querySelector('input[readonly]');
@@ -153,7 +178,7 @@ const axios = require('axios');
     });
     console.log(`  => 🎯 取得成功URL: ${entryUrl}`);
 
-    // [Step 7] GASへの書き戻し
+    // [Step 15] GASへの書き戻し
     console.log(`\n[Step 15] 取得したURLをGASへ送信（報告）します。`);
     if (gasUrl) {
       await axios.post(gasUrl, { row_idx: rowIdx, entry_url: entryUrl, status: 'success' });

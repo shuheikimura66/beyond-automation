@@ -146,11 +146,12 @@ const axios = require('axios');
     await duplicateBtn.click();
     await page.waitForTimeout(3000);
 
-    // ★大改修：確実なラベル指定による各項目の入力
+    // ★大改修：厳密な指定による各項目の入力
     console.log(`\n[Step 11] 複製設定を入力中...`);
     
     console.log(`  - beyondページ名を入力します: ${targetArticle}`);
-    const pageNameInput = page.locator('label').filter({ hasText: 'beyondページ名' }).locator('xpath=..').locator('input');
+    // ★修正：検索窓の「グループ/フォルダ/ドメイン/beyondページ名」と混同しないように厳密指定
+    const pageNameInput = page.getByRole('textbox', { name: 'beyondページ名', exact: true });
     await pageNameInput.waitFor({ state: 'visible', timeout: 5000 });
     await pageNameInput.fill(''); // 一度リセット
     await page.waitForTimeout(500);
@@ -158,7 +159,6 @@ const axios = require('axios');
     await page.waitForTimeout(1500);
     
     console.log(`  - チームを「フルアウト」に設定します。`);
-    // 「チーム」というラベルの枠を直接クリック
     const teamBox = page.locator('label').filter({ hasText: /^チーム$/ }).locator('xpath=..');
     await teamBox.click();
     await page.waitForTimeout(1500);
@@ -166,12 +166,10 @@ const axios = require('axios');
     await page.waitForTimeout(1500);
     
     console.log(`  - 移動先フォルダを「${accountName}」に設定します。`);
-    // 「フォルダ」というラベルの枠を直接クリック
     const folderBox = page.locator('label').filter({ hasText: /^フォルダ$/ }).locator('xpath=..');
     await folderBox.click();
     await page.waitForTimeout(1500);
     
-    // フォルダ名は数が多い可能性があるため、入力して絞り込む（inputが存在する場合）
     const folderInput = folderBox.locator('input');
     if (await folderInput.isVisible()) {
       await folderInput.fill(accountName);

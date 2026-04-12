@@ -98,13 +98,30 @@ const axios = require('axios');
     
     // [Step 10] 複製メニュー
     console.log(`\n[Step 10] 「別フォルダへ複製」を選択します。`);
-    const articleRow = page.locator('div, li').filter({ hasText: targetArticle }).filter({ has: page.locator('button') }).last();
-    await articleRow.locator('button').nth(-2).click(); 
+    const articleRow = page.locator('tr, div, li').filter({ hasText: targetArticle }).filter({ has: page.locator('button') }).last();
+    
+    // ★ 大改修：CV連携アイコン（チェーン）等の有無に左右されない最強のクリック
+    const lastCell = articleRow.locator('td').last();
+    if (await lastCell.isVisible().catch(() => false)) {
+        // MUIテーブルの場合、アクションがまとまった右端のセル内の一番左(first)が必ず「メニュー(⋮)」
+        await lastCell.locator('button').first().click();
+        console.log(`  => テーブルの右端からメニューボタンを特定しました。`);
+    } else {
+        // 万が一テーブル構造で取得できなかった場合のフォールバック（木村さんご提供のチェーンSVGパスで判定）
+        const chainIconCount = await articleRow.locator('button').filter({ has: page.locator('path[d^="M67.497"]') }).count();
+        if (chainIconCount > 0) {
+            console.log(`  => 🔗 CV連携アイコンを検知。位置を調整してメニューをクリックします。`);
+            await articleRow.locator('button').nth(-3).click(); // [メニュー, チェーン, 星]
+        } else {
+            await articleRow.locator('button').nth(-2).click(); // [メニュー, 星]
+        }
+    }
+    
     await page.waitForTimeout(1000);
     await page.locator('.MuiPopover-root, [role="menu"]').getByText('別フォルダへ複製', { exact: true }).click();
     await page.waitForTimeout(3000);
 
-    // ★ Step 11: 複製設定（洗練版：フォルダを直接検索）
+    // [Step 11] 複製設定を入力します。
     console.log(`\n[Step 11] 複製設定を入力します。`);
 
     console.log(`  - beyondページ名を入力します: ${targetArticle}`);
@@ -122,8 +139,6 @@ const axios = require('axios');
     await page.getByRole('option', { name: 'フルアウト' }).click();
     await page.waitForTimeout(1000);
 
-    // 💡 エラーの元凶だった「フォルダグループの検索」は完全に削除しました！
-
     console.log(`  - 移動先フォルダ「${accountName}」を直接検索・選択します。`);
     const folderBox = page.locator('label').filter({ hasText: /^フォルダ$/ }).locator('xpath=..');
     await folderBox.click();
@@ -131,8 +146,8 @@ const axios = require('axios');
     const folderInput = folderBox.locator('input');
     await folderInput.fill('');
     await page.waitForTimeout(500);
-    await folderInput.pressSequentially(accountName, { delay: 50 }); // フォルダ名を直接1文字ずつ検索
-    await page.waitForTimeout(3000); // 候補が出るのを待つ
+    await folderInput.pressSequentially(accountName, { delay: 50 }); 
+    await page.waitForTimeout(3000); 
 
     const option = page.getByRole('option').filter({ hasText: accountName }).first();
     if (await option.isVisible({ timeout: 5000 })) {

@@ -30,11 +30,9 @@ jobs:
           ROW_IDX: ${{ github.event.client_payload.row_idx }}
           DOMAIN: ${{ github.event.client_payload.domain }}
           GROUP_NAME: ${{ github.event.client_payload.group_name }}
-          TARGET_URL: ${{ github.event.client_payload.target_url }}
           ACCOUNT_NAME: ${{ github.event.client_payload.account_name }}
-          ARTICLE_NAME: ${{ github.event.client_payload.article_name }}
-          SEARCH_KEYWORD: ${{ github.event.client_payload.search_keyword }}
           TARGET_ARTICLE: ${{ github.event.client_payload.target_article }}
+          SEARCH_KEYWORD: ${{ github.event.client_payload.search_keyword }}
           DELIVERY_URL: ${{ github.event.client_payload.delivery_url }} 
         run: node task.js
 
@@ -44,4 +42,12 @@ jobs:
         with:
           name: error-screenshot
           path: error-screenshot.png
+          retention-days: 3
+
+      - name: Upload Success Screenshot
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-check
+          path: final-check.png
           retention-days: 3

@@ -11,20 +11,20 @@ const axios = require('axios');
   const rowIdx = process.env.ROW_IDX;
   const domain = process.env.DOMAIN;
   const groupName = process.env.GROUP_NAME;
-  const targetUrl = process.env.TARGET_URL;
   const accountName = process.env.ACCOUNT_NAME;
-  const articleName = process.env.ARTICLE_NAME;
   const searchKeyword = process.env.SEARCH_KEYWORD;
   const targetArticle = process.env.TARGET_ARTICLE;
   const deliveryUrl = process.env.DELIVERY_URL; 
   const gasUrl = process.env.GAS_WEBAPP_URL;
+
+  // 原本URLはハードコード
+  const targetUrl = 'https://app.squadbeyond.com/';
 
   try {
     console.log(`\n=========================================`);
     console.log(`🚀 RPA開始 (対象行: ${rowIdx})`);
     console.log(`=========================================`);
 
-    // [Step 1] ターゲットURLへアクセス
     console.log(`\n[Step 1] ターゲットURLにアクセスします: ${targetUrl}`);
     await page.goto(targetUrl);
     await page.waitForLoadState('load');
@@ -49,7 +49,6 @@ const axios = require('axios');
       await page.waitForLoadState('load');
     }
 
-    // [Step 2] フォルダ作成
     console.log(`\n[Step 2] 検索窓に「木村」と入力して絞り込みます。`);
     await page.locator('input[type="search"]').first().fill('');
     await page.locator('input[type="search"]').first().pressSequentially('木村', { delay: 50 });
@@ -79,7 +78,6 @@ const axios = require('axios');
     console.log(`  => ⏳ フォルダ作成中...`);
     await page.waitForTimeout(5000);
 
-    // [Step 7-9] 記事の検索
     console.log(`\n[Step 7-9] 記事「${targetArticle}」を検索します。`);
     const globalSearch = page.locator('input[type="search"]').first();
     await globalSearch.fill('');
@@ -96,24 +94,20 @@ const axios = require('axios');
     await articleSearchInput.pressSequentially(targetArticle, { delay: 50 });
     await page.waitForTimeout(3000);
     
-    // [Step 10] 複製メニュー
     console.log(`\n[Step 10] 「別フォルダへ複製」を選択します。`);
     const articleRow = page.locator('tr, div, li').filter({ hasText: targetArticle }).filter({ has: page.locator('button') }).last();
     
-    // ★ 大改修：CV連携アイコン（チェーン）等の有無に左右されない最強のクリック
     const lastCell = articleRow.locator('td').last();
     if (await lastCell.isVisible().catch(() => false)) {
-        // MUIテーブルの場合、アクションがまとまった右端のセル内の一番左(first)が必ず「メニュー(⋮)」
         await lastCell.locator('button').first().click();
         console.log(`  => テーブルの右端からメニューボタンを特定しました。`);
     } else {
-        // 万が一テーブル構造で取得できなかった場合のフォールバック（木村さんご提供のチェーンSVGパスで判定）
         const chainIconCount = await articleRow.locator('button').filter({ has: page.locator('path[d^="M67.497"]') }).count();
         if (chainIconCount > 0) {
             console.log(`  => 🔗 CV連携アイコンを検知。位置を調整してメニューをクリックします。`);
-            await articleRow.locator('button').nth(-3).click(); // [メニュー, チェーン, 星]
+            await articleRow.locator('button').nth(-3).click(); 
         } else {
-            await articleRow.locator('button').nth(-2).click(); // [メニュー, 星]
+            await articleRow.locator('button').nth(-2).click(); 
         }
     }
     
@@ -121,7 +115,6 @@ const axios = require('axios');
     await page.locator('.MuiPopover-root, [role="menu"]').getByText('別フォルダへ複製', { exact: true }).click();
     await page.waitForTimeout(3000);
 
-    // [Step 11] 複製設定を入力します。
     console.log(`\n[Step 11] 複製設定を入力します。`);
 
     console.log(`  - beyondページ名を入力します: ${targetArticle}`);
@@ -169,7 +162,6 @@ const axios = require('axios');
       await page.waitForTimeout(1000);
     }
     
-    // ★複製ボタンのクリック
     const copySubmitBtn = page.getByRole('button', { name: '複製する' });
     await copySubmitBtn.waitFor({ state: 'visible' });
     await page.waitForTimeout(1000);

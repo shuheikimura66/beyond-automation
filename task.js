@@ -72,7 +72,9 @@ const axios = require('axios');
     const domainLabelBox = page.locator('label:has-text("認証済み独自ドメイン")').locator('xpath=..');
     await domainLabelBox.click();
     await page.waitForTimeout(1000);
-    await page.getByRole('option', { name: domain }).click();
+    
+    // ★修正ポイント：{ exact: true } を追加して、似たドメイン（部分一致）を完全に無視する！
+    await page.getByRole('option', { name: domain, exact: true }).click();
     
     await page.getByRole('button', { name: '作成する' }).click();
     console.log(`  => ⏳ フォルダ作成中...`);
@@ -129,7 +131,8 @@ const axios = require('axios');
     const teamBox = page.locator('label').filter({ hasText: /^チーム$/ }).locator('xpath=..');
     await teamBox.click();
     await page.waitForTimeout(1000);
-    await page.getByRole('option', { name: 'フルアウト' }).click();
+    // ★ここも念のため完全一致（exact: true）に変更
+    await page.getByRole('option', { name: 'フルアウト', exact: true }).click();
     await page.waitForTimeout(1000);
 
     console.log(`  - 移動先フォルダ「${accountName}」を直接検索・選択します。`);

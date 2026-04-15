@@ -62,14 +62,24 @@ const axios = require('axios');
     await page.waitForTimeout(3000); // 検索結果が絞り込まれ、自動展開されるのを待機
 
     console.log(`\n[Step 2] フォルダ名をクリックして中に入ります。`);
-    // ★大改修：検索結果は自動で親グループが開くため、親をクリックする処理を削除！
-    // 提示いただいた pタグ（MuiTypography-body1）を直接狙い撃ちします。
-    const folderLink = page.locator('p, div, a').filter({ hasText: folderName }).last();
     
-    // 確実に出現するのを待機（最大10秒）してからクリック
-    await folderLink.waitFor({ state: 'visible', timeout: 10000 });
-    await folderLink.click();
-    console.log(`  => フォルダ名をクリックしました。`);
+    // ★大改修：非表示の要素を掴んでしまわないよう「画面に見えているもの（visible）」だけに絞り込む！
+    try {
+        const folderLink = page.getByText(folderName).filter({ state: 'visible' }).last();
+        await folderLink.waitFor({ timeout: 5000 });
+        await folderLink.click();
+        console.log(`  => フォルダ名（完全一致）をクリックしました。`);
+    } catch (e) {
+        // ★最強のバックアップ：全角/半角の違いなどでエラーが出た場合、カッコの手前までの「部分一致」でクリックを試みる
+        const partialName = folderName.split('（')[0].split('(')[0].trim(); // 「快調ハニー/G008」などを抽出
+        console.log(`  => ⚠️完全一致で見つからなかったため、部分一致「${partialName}」で再試行します。`);
+        
+        const partialLink = page.getByText(partialName).filter({ state: 'visible' }).last();
+        await partialLink.waitFor({ timeout: 5000 });
+        await partialLink.click();
+        console.log(`  => フォルダ名（部分一致）をクリックしました。`);
+    }
+    
     await page.waitForTimeout(3000); 
 
     // =========================================================

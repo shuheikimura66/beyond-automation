@@ -2,7 +2,6 @@ const { chromium } = require('playwright');
 const axios = require('axios');
 
 (async () => {
-  // ★修正： { headless: false } を削除し、GitHubサーバー上で動くようにしました
   const browser = await chromium.launch(); 
   const context = await browser.newContext({
     viewport: { width: 1280, height: 720 }
@@ -62,10 +61,25 @@ const axios = require('axios');
     await globalSearch.pressSequentially(folderName, { delay: 50 });
     await page.waitForTimeout(3000); // 検索結果が出るまで待機
 
-    console.log(`\n[Step 2] 検索結果からフォルダ名をクリックして中に入ります。`);
-    const folderLink = page.locator('div, li, a').filter({ hasText: folderName }).last();
+    // ★ご提示いただいた pタグ（MuiTypography-body1）をベースに検索
+    const folderLink = page.locator('p.MuiTypography-body1').filter({ hasText: folderName }).first();
+
+    // フォルダ名がまだ見えていない場合のみ、親グループを展開する
+    if (!(await folderLink.isVisible().catch(() => false))) {
+        console.log(`\n[Step 2] 親グループを展開します。`);
+        // フォルダ名「以外」の最初のpタグを親グループとみなしてクリック
+        const parentGroup = page.locator('p.MuiTypography-body1').filter({ hasNotText: folderName }).first();
+        if (await parentGroup.isVisible().catch(() => false)) {
+            await parentGroup.click();
+            console.log(`  => 親グループをクリックして展開しました。`);
+            await page.waitForTimeout(1500); // 展開アニメーション待機
+        }
+    }
+
+    console.log(`\n[Step 2.5] フォルダ名をクリックして中に入ります。`);
     await folderLink.click();
-    await page.waitForTimeout(3000); // フォルダの中身がロードされるまで待機
+    console.log(`  => フォルダ名をクリックしました。`);
+    await page.waitForTimeout(3000); 
 
     // =========================================================
     // [Step 3] フォルダ内で記事名を検索
@@ -104,8 +118,8 @@ const axios = require('axios');
     await page.waitForTimeout(1000);
 
     console.log(`  => メニュー内から「beyondページ複製」を選択します。`);
-    await page.locator('.MuiPopover-root, [role="menu"]').getByText('beyondページ複製', { exact: true }).click();
-    
+    // ★ご提示いただいた aタグ を狙い撃ち
+    await page.locator('a').filter({ hasText: 'beyondページ複製' }).first().click();
     await page.waitForTimeout(3000);
 
     // =========================================================
@@ -119,7 +133,7 @@ const axios = require('axios');
 
     console.log(`\n🎉 テスト稼働（Step 4まで）完了しました！`);
 
-    // ★重要：GASへの成功通知（task_type を追加）
+    // GASへの成功通知
     if (gasUrl) {
       await axios.post(gasUrl, { row_idx: rowIdx, entry_url: "", status: 'success', task_type: 'duplicate' });
     }
@@ -128,7 +142,7 @@ const axios = require('axios');
     console.error(`\n❌ エラー発生:\n`, error);
     await page.screenshot({ path: 'duplicate-error-screenshot.png', fullPage: true });
     
-    // ★重要：GASへのエラー通知（task_type を追加）
+    // GASへのエラー通知
     if (gasUrl) {
       await axios.post(gasUrl, { row_idx: rowIdx, entry_url: "", status: 'error', task_type: 'duplicate' });
     }

@@ -10,20 +10,21 @@ const axios = require('axios');
   const page = await context.newPage();
 
   // =========================================================
-  // 1. 変数の設定（★コピー元とコピー先の変数を分けました）
+  // 1. 変数の設定（★コピー元と先でグループ名も分離！）
   // =========================================================
   const rowIdx = process.env.ROW_IDX; 
-  const groupListName = process.env.GROUP_LIST_NAME; 
-  const sourceFolder = process.env.FOLDER_NAME_SOURCE; // ★F列: フォルダ名（コピー元）
-  const destFolder = process.env.FOLDER_NAME_DEST;     // ★G列: フォルダ名（コピー先）
-  const sourceArticle = process.env.SOURCE_ARTICLE;    // H列: 記事名（コピー元）
-  const newArticleName = process.env.NEW_ARTICLE_NAME; // I列: beyondページ名（新規）
-  const deliveryUrl = process.env.DELIVERY_URL;        // J列: 配信URL設定
+  const groupListSource = process.env.GROUP_LIST_NAME_SOURCE; 
+  const sourceFolder = process.env.FOLDER_NAME_SOURCE; 
+  const sourceArticle = process.env.SOURCE_ARTICLE; 
+  
+  const groupListDest = process.env.GROUP_LIST_NAME_DEST; 
+  const destFolder = process.env.FOLDER_NAME_DEST; 
+  const newArticleName = process.env.NEW_ARTICLE_NAME; 
+  
+  const deliveryUrl = process.env.DELIVERY_URL; 
   const gasUrl = process.env.GAS_WEBAPP_URL;
 
-  // コピー元とコピー先が同じかどうかを判定
   const isSameFolder = (sourceFolder === destFolder);
-
   const targetUrl = 'https://app.squadbeyond.com/';
 
   try {
@@ -61,11 +62,11 @@ const axios = require('axios');
     await globalSearch.pressSequentially(sourceFolder, { delay: 50 });
     await page.waitForTimeout(4000);
 
-    // [Step 2] 親グループの展開
+    // [Step 2] 親グループ（コピー元）の展開
     const folderLink = page.getByText(sourceFolder).filter({ state: 'visible' }).last();
     if (!(await folderLink.isVisible().catch(() => false))) {
-        console.log(`\n[Step 2] 親グループ「${groupListName}」を展開します。`);
-        const parentGroup = page.locator('p.MuiTypography-body1').filter({ hasText: groupListName }).first();
+        console.log(`\n[Step 2] 親グループ「${groupListSource}」を展開します。`);
+        const parentGroup = page.locator('p.MuiTypography-body1').filter({ hasText: groupListSource }).first();
         if (await parentGroup.isVisible().catch(() => false)) {
             await parentGroup.click();
             await page.waitForTimeout(2000);
@@ -125,7 +126,6 @@ const axios = require('axios');
     // [Step 4.5 & 5] パターンごとの複製処理
     // =========================================================
     if (isSameFolder) {
-        // ▼ パターンA：同じフォルダ内に複製する場合
         console.log(`  => 【パターンA】同じフォルダ内なので「beyondページ複製」を選択します。`);
         await page.locator('a').filter({ hasText: 'beyondページ複製' }).first().click();
         await page.waitForTimeout(3000);
@@ -149,7 +149,6 @@ const axios = require('axios');
             }
         }
     } else {
-        // ▼ パターンB：別フォルダへ複製する場合
         console.log(`  => 【パターンB】別フォルダへ移動するため「別フォルダへ複製」を選択します。`);
         await page.locator('.MuiPopover-root, [role="menu"]').getByText('別フォルダへ複製', { exact: true }).click();
         await page.waitForTimeout(3000);
@@ -197,7 +196,6 @@ const axios = require('axios');
         }
     }
 
-    // 共通：複製ボタンを押す
     await page.waitForTimeout(1000);
     console.log(`  - 「複製する」ボタンを押します。`);
     const copySubmitBtn = page.getByRole('button', { name: '複製する' });
@@ -226,6 +224,15 @@ const axios = require('axios');
         await page.waitForTimeout(4000);
 
         const destFolderLink = page.getByText(destFolder).filter({ state: 'visible' }).last();
+        if (!(await destFolderLink.isVisible().catch(() => false))) {
+            console.log(`  => 親グループ「${groupListDest}」を展開します。`);
+            const destParentGroup = page.locator('p.MuiTypography-body1').filter({ hasText: groupListDest }).first();
+            if (await destParentGroup.isVisible().catch(() => false)) {
+                await destParentGroup.click();
+                await page.waitForTimeout(2000);
+            }
+        }
+        
         try {
             await destFolderLink.waitFor({ timeout: 5000 });
             await destFolderLink.click();

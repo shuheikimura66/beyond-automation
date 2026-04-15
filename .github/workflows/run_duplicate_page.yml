@@ -2,7 +2,6 @@ name: SquadBeyond Duplicate Page RPA
 
 on:
   repository_dispatch:
-    # ★重要：既存の[run-rpa]とは違う名前にして、GASから個別に呼び出せるようにします
     types: [run-duplicate-page]
 
 jobs:
@@ -29,21 +28,20 @@ jobs:
           SQUADBEYOND_PASS: ${{ secrets.SQUADBEYOND_PASS }}
           GAS_WEBAPP_URL: ${{ secrets.GAS_WEBAPP_URL }}
           
-          # ★新しいJSファイル（duplicate_page_task.js）が受け取る変数に合わせます
+          # ★ GROUP_LIST_NAME を追加！
           ROW_IDX: ${{ github.event.client_payload.row_idx }}
+          GROUP_LIST_NAME: ${{ github.event.client_payload.group_list_name }}
           FOLDER_NAME: ${{ github.event.client_payload.folder_name }}
           SOURCE_ARTICLE: ${{ github.event.client_payload.source_article }}
           NEW_ARTICLE_NAME: ${{ github.event.client_payload.new_article_name }}
           DELIVERY_URL: ${{ github.event.client_payload.delivery_url }} 
           
-        # ★実行するファイルを新しいJSファイルに指定します
         run: node duplicate_page_task.js
 
       - name: Upload Error Screenshot
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          # エラー時のスクショ名も被らないように変更
           name: duplicate-error-screenshot
           path: duplicate-error-screenshot.png
           retention-days: 3

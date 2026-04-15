@@ -12,10 +12,11 @@ const axios = require('axios');
   // 1. 変数の設定
   // =========================================================
   const rowIdx = process.env.ROW_IDX; 
-  const folderName = process.env.FOLDER_NAME; // E列: フォルダ名
-  const sourceArticle = process.env.SOURCE_ARTICLE; // F列: 記事名（コピー元）
-  const newArticleName = process.env.NEW_ARTICLE_NAME; // G列: 新規ページ名
-  const deliveryUrl = process.env.DELIVERY_URL; // H列: 配信URL設定
+  const groupListName = process.env.GROUP_LIST_NAME; // ★E列: 親グループ名
+  const folderName = process.env.FOLDER_NAME;        // F列: フォルダ名
+  const sourceArticle = process.env.SOURCE_ARTICLE;  // G列: 記事名（コピー元）
+  const newArticleName = process.env.NEW_ARTICLE_NAME; // H列: 新規ページ名
+  const deliveryUrl = process.env.DELIVERY_URL;      // I列: 配信URL設定
   const gasUrl = process.env.GAS_WEBAPP_URL;
 
   const targetUrl = 'https://app.squadbeyond.com/';
@@ -35,7 +36,6 @@ const axios = require('axios');
 
     const emailInput = page.locator('input[name="email"]');
     if (await emailInput.isVisible()) {
-      console.log(`  => 🔑 ログイン情報を入力します。`);
       await emailInput.fill(process.env.SQUADBEYOND_ID);
       await page.waitForTimeout(1000);
       await page.locator('input[name="password"]').fill(process.env.SQUADBEYOND_PASS);
@@ -53,25 +53,45 @@ const axios = require('axios');
     }
 
     // =========================================================
-    // [Step 1-2] フォルダ名を検索して直接クリック
+    // [Step 1] フォルダ名を検索
     // =========================================================
     console.log(`\n[Step 1] 検索窓にフォルダ名「${folderName}」を入力します。`);
     const globalSearch = page.locator('input[type="search"]').first();
     await globalSearch.fill('');
     await globalSearch.pressSequentially(folderName, { delay: 50 });
-    await page.waitForTimeout(3000); // 検索結果が絞り込まれ、自動展開されるのを待機
+    await page.waitForTimeout(4000); // 検索結果が絞り込まれるのを待機
 
-    console.log(`\n[Step 2] フォルダ名をクリックして中に入ります。`);
-    
-    // ★大改修：非表示の要素を掴んでしまわないよう「画面に見えているもの（visible）」だけに絞り込む！
+    // =========================================================
+    // [Step 2] スプシで指定された親グループを開く
+    // =========================================================
+    // すでにフォルダが見えているかチェック
+    const folderLink = page.getByText(folderName).filter({ state: 'visible' }).last();
+
+    if (!(await folderLink.isVisible().catch(() => false))) {
+        console.log(`\n[Step 2] 親グループ「${groupListName}」を展開します。`);
+        
+        // ★大改修：スプシに入力されたグループ名を直接探してクリック！
+        const parentGroup = page.locator('p.MuiTypography-body1').filter({ hasText: groupListName }).first();
+        
+        if (await parentGroup.isVisible().catch(() => false)) {
+            await parentGroup.click();
+            console.log(`  => 親グループをクリックして展開しました。`);
+            await page.waitForTimeout(2000); // アニメーション待機
+        } else {
+            console.log(`  => ⚠️ 親グループが見つかりません。すでに展開されているか、文字が違う可能性があります。`);
+        }
+    }
+
+    // =========================================================
+    // [Step 2.5] 子フォルダをクリック
+    // =========================================================
+    console.log(`\n[Step 2.5] フォルダ名をクリックして中に入ります。`);
     try {
-        const folderLink = page.getByText(folderName).filter({ state: 'visible' }).last();
         await folderLink.waitFor({ timeout: 5000 });
         await folderLink.click();
         console.log(`  => フォルダ名（完全一致）をクリックしました。`);
     } catch (e) {
-        // ★最強のバックアップ：全角/半角の違いなどでエラーが出た場合、カッコの手前までの「部分一致」でクリックを試みる
-        const partialName = folderName.split('（')[0].split('(')[0].trim(); // 「快調ハニー/G008」などを抽出
+        const partialName = folderName.split('（')[0].split('(')[0].trim();
         console.log(`  => ⚠️完全一致で見つからなかったため、部分一致「${partialName}」で再試行します。`);
         
         const partialLink = page.getByText(partialName).filter({ state: 'visible' }).last();
@@ -79,7 +99,6 @@ const axios = require('axios');
         await partialLink.click();
         console.log(`  => フォルダ名（部分一致）をクリックしました。`);
     }
-    
     await page.waitForTimeout(3000); 
 
     // =========================================================
@@ -124,7 +143,7 @@ const axios = require('axios');
     await page.waitForTimeout(3000);
 
     // =========================================================
-    // [Step 5] 複製ポップアップの操作（構築中）
+    // [Step 5] 複製ポップアップの操作
     // =========================================================
     console.log(`\n[Step 5] 複製ポップアップに新規情報を入力します。（構築中）`);
     console.log(`  - 予定入力値: 新規ページ名 = ${newArticleName}`);

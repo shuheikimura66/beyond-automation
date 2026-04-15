@@ -9,7 +9,7 @@ const axios = require('axios');
   const page = await context.newPage();
 
   // =========================================================
-  // 1. 変数の設定（スプシの「beyondページ複製」シートに対応）
+  // 1. 変数の設定
   // =========================================================
   const rowIdx = process.env.ROW_IDX; 
   const folderName = process.env.FOLDER_NAME; // E列: フォルダ名
@@ -61,22 +61,33 @@ const axios = require('axios');
     await globalSearch.pressSequentially(folderName, { delay: 50 });
     await page.waitForTimeout(3000); // 検索結果が出るまで待機
 
-    // ★ご提示いただいた pタグ（MuiTypography-body1）をベースに検索
+    // 対象のフォルダを探す
     const folderLink = page.locator('p.MuiTypography-body1').filter({ hasText: folderName }).first();
 
     // フォルダ名がまだ見えていない場合のみ、親グループを展開する
     if (!(await folderLink.isVisible().catch(() => false))) {
         console.log(`\n[Step 2] 親グループを展開します。`);
-        // フォルダ名「以外」の最初のpタグを親グループとみなしてクリック
-        const parentGroup = page.locator('p.MuiTypography-body1').filter({ hasNotText: folderName }).first();
+        
+        // ★大改修：UI上の固定テキストを完全に除外し、残ったものを親グループとみなす
+        const parentGroup = page.locator('p.MuiTypography-body1')
+            .filter({ hasNotText: folderName })
+            .filter({ hasNotText: 'お気に入り' })
+            .filter({ hasNotText: 'グループリスト' })
+            .filter({ hasNotText: 'グループ作成' })
+            .filter({ hasNotText: 'フォルダ作成' })
+            .filter({ hasNotText: 'beyond' })
+            .first();
+            
         if (await parentGroup.isVisible().catch(() => false)) {
             await parentGroup.click();
             console.log(`  => 親グループをクリックして展開しました。`);
-            await page.waitForTimeout(1500); // 展開アニメーション待機
+            await page.waitForTimeout(2000); // アニメーション待機
         }
     }
 
     console.log(`\n[Step 2.5] フォルダ名をクリックして中に入ります。`);
+    // 展開されるのを最大5秒待ってからクリック
+    await folderLink.waitFor({ state: 'visible', timeout: 5000 });
     await folderLink.click();
     console.log(`  => フォルダ名をクリックしました。`);
     await page.waitForTimeout(3000); 
@@ -118,8 +129,8 @@ const axios = require('axios');
     await page.waitForTimeout(1000);
 
     console.log(`  => メニュー内から「beyondページ複製」を選択します。`);
-    // ★ご提示いただいた aタグ を狙い撃ち
     await page.locator('a').filter({ hasText: 'beyondページ複製' }).first().click();
+    
     await page.waitForTimeout(3000);
 
     // =========================================================
@@ -133,7 +144,6 @@ const axios = require('axios');
 
     console.log(`\n🎉 テスト稼働（Step 4まで）完了しました！`);
 
-    // GASへの成功通知
     if (gasUrl) {
       await axios.post(gasUrl, { row_idx: rowIdx, entry_url: "", status: 'success', task_type: 'duplicate' });
     }
@@ -142,7 +152,6 @@ const axios = require('axios');
     console.error(`\n❌ エラー発生:\n`, error);
     await page.screenshot({ path: 'duplicate-error-screenshot.png', fullPage: true });
     
-    // GASへのエラー通知
     if (gasUrl) {
       await axios.post(gasUrl, { row_idx: rowIdx, entry_url: "", status: 'error', task_type: 'duplicate' });
     }

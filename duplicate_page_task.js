@@ -3,7 +3,7 @@ const axios = require('axios');
 
 (async () => {
   const browser = await chromium.launch(); 
-  // ★クリップボードへのアクセス権限を付与してURLをコピーできるようにする
+  // クリップボードへのアクセス権限を付与
   const context = await browser.newContext({
     viewport: { width: 1280, height: 720 },
     permissions: ['clipboard-read', 'clipboard-write']
@@ -80,24 +80,36 @@ const axios = require('axios');
         await partialLink.waitFor({ timeout: 5000 });
         await partialLink.click();
     }
-    await page.waitForTimeout(3000); 
+    // ★大改修：フォルダに入った直後は記事一覧のロードに時間がかかるため、5秒待機する
+    console.log(`  => フォルダの中身（記事一覧）のロードを待機しています...`);
+    await page.waitForTimeout(5000); 
 
     // [Step 3] 記事名検索
     console.log(`\n[Step 3] フォルダ内で記事「${sourceArticle}」を検索します。`);
     const articleSearchInput = page.locator('label').filter({ hasText: '媒体/名前検索' }).locator('xpath=..').locator('input').first();
     if (await articleSearchInput.isVisible().catch(() => false)) {
+        // ★大改修：確実に入力するため、一度フォーカスしてから文字を消して入力
+        await articleSearchInput.click();
         await articleSearchInput.fill('');
+        await page.waitForTimeout(500);
         await articleSearchInput.pressSequentially(sourceArticle, { delay: 50 });
     } else {
         const globalSearch2 = page.locator('input[type="search"]').last();
+        await globalSearch2.click();
         await globalSearch2.fill('');
+        await page.waitForTimeout(500);
         await globalSearch2.pressSequentially(sourceArticle, { delay: 50 });
     }
-    await page.waitForTimeout(3000);
+    // ★大改修：検索結果の絞り込み反映を長めに待機
+    await page.waitForTimeout(4000);
 
     // [Step 4] 複製メニュークリック
     console.log(`\n[Step 4] 対象記事のメニューを開き、「beyondページ複製」をクリックします。`);
     const articleRow = page.locator('tr, div, li').filter({ hasText: sourceArticle }).filter({ has: page.locator('button') }).last();
+    
+    // ★大改修：記事が画面に現れるまで最大10秒待機する
+    await articleRow.waitFor({ state: 'visible', timeout: 10000 });
+
     const lastCell = articleRow.locator('td').last();
     if (await lastCell.isVisible().catch(() => false)) {
         await lastCell.locator('button').first().click();
@@ -118,21 +130,26 @@ const axios = require('axios');
     // =========================================================
     console.log(`\n[Step 5] 複製ポップアップに新規情報を入力します。`);
     
+    console.log(`  - beyondページ名を入力します: ${newArticleName}`);
     const pageNameInput = page.getByRole('textbox', { name: 'beyondページ名', exact: true });
     await pageNameInput.waitFor({ state: 'visible', timeout: 5000 });
+    await pageNameInput.click();
     await pageNameInput.fill('');
-    await pageNameInput.pressSequentially(newArticleName, { delay: 50 });
     await page.waitForTimeout(500);
+    await pageNameInput.pressSequentially(newArticleName, { delay: 50 });
+    await page.waitForTimeout(1000);
     
     if (deliveryUrl) {
       console.log(`  - 配信URL設定を入力します: ${deliveryUrl}`);
       const deliveryInput = page.getByPlaceholder('半角英数字,-,_が使えます');
       if (await deliveryInput.isVisible().catch(() => false)) {
+          await deliveryInput.click();
           await deliveryInput.fill('');
+          await page.waitForTimeout(500);
           await deliveryInput.pressSequentially(deliveryUrl, { delay: 50 });
       }
     }
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1000);
 
     console.log(`  - 「複製する」ボタンを押します。`);
     const copySubmitBtn = page.getByRole('button', { name: '複製する' });
@@ -145,26 +162,39 @@ const axios = require('axios');
     }
     
     console.log(`  => ⏳ 複製処理の完了を待機しています...`);
-    await page.waitForTimeout(8000); // ポップアップが消えて複製が完了するのを待機
+    // ★大改修：ポップアップが完全に消えるまで待機（複製完了の証）
+    await copySubmitBtn.waitFor({ state: 'hidden', timeout: 30000 });
+    console.log(`  => ✅ ポップアップが消えました。一覧の更新を待ちます...`);
+    await page.waitForTimeout(5000);
 
     // =========================================================
     // [Step 6] 複製された記事の検索とURLコピー
     // =========================================================
     console.log(`\n[Step 6] 複製されたページ「${newArticleName}」を検索してURLをコピーします。`);
     
-    // 検索窓をクリアして新規ページ名を検索
-    if (await articleSearchInput.isVisible().catch(() => false)) {
-        await articleSearchInput.fill('');
-        await articleSearchInput.pressSequentially(newArticleName, { delay: 50 });
+    // ★大改修：画面が更新されて古い検索窓が消えているため、「再取得」する
+    const articleSearchInput2 = page.locator('label').filter({ hasText: '媒体/名前検索' }).locator('xpath=..').locator('input').first();
+    
+    if (await articleSearchInput2.isVisible().catch(() => false)) {
+        await articleSearchInput2.click();
+        await articleSearchInput2.fill('');
+        await page.waitForTimeout(500);
+        await articleSearchInput2.pressSequentially(newArticleName, { delay: 50 });
     } else {
         const globalSearch3 = page.locator('input[type="search"]').last();
+        await globalSearch3.click();
         await globalSearch3.fill('');
+        await page.waitForTimeout(500);
         await globalSearch3.pressSequentially(newArticleName, { delay: 50 });
     }
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(4000);
 
     // メニューを開く
     const newArticleRow = page.locator('tr, div, li').filter({ hasText: newArticleName }).filter({ has: page.locator('button') }).last();
+    
+    // ★大改修：新しい記事が表示されるまで確実に待つ
+    await newArticleRow.waitFor({ state: 'visible', timeout: 10000 });
+
     const newLastCell = newArticleRow.locator('td').last();
     if (await newLastCell.isVisible().catch(() => false)) {
         await newLastCell.locator('button').first().click();
@@ -179,11 +209,10 @@ const axios = require('axios');
     await page.waitForTimeout(1000);
 
     console.log(`  - URLコピーのアイコンをクリックします。`);
-    // 指定いただいた FileCopyIcon のSVGが含まれるメニュー項目をクリック
     await page.locator('.MuiPopover-root, [role="menu"]').locator('[data-testid="FileCopyIcon"]').locator('xpath=..').first().click();
     await page.waitForTimeout(1000);
 
-    // クリップボードからコピーした内容（URL）を取得！
+    // クリップボードからコピーした内容を取得
     const copiedUrl = await page.evaluate(() => navigator.clipboard.readText());
     console.log(`  => 🎉 取得したURL: ${copiedUrl}`);
 

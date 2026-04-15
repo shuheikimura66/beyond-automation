@@ -1,0 +1,49 @@
+name: SquadBeyond Duplicate Page RPA
+
+on:
+  repository_dispatch:
+    # ★重要：既存の[run-rpa]とは違う名前にして、GASから個別に呼び出せるようにします
+    types: [run-duplicate-page]
+
+jobs:
+  run-playwright:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          npm init -y
+          npm install playwright axios
+          npx playwright install --with-deps chromium
+
+      - name: Run Duplicate Script
+        env:
+          SQUADBEYOND_ID: ${{ secrets.SQUADBEYOND_ID }}
+          SQUADBEYOND_PASS: ${{ secrets.SQUADBEYOND_PASS }}
+          GAS_WEBAPP_URL: ${{ secrets.GAS_WEBAPP_URL }}
+          
+          # ★新しいJSファイル（duplicate_page_task.js）が受け取る変数に合わせます
+          ROW_IDX: ${{ github.event.client_payload.row_idx }}
+          FOLDER_NAME: ${{ github.event.client_payload.folder_name }}
+          SOURCE_ARTICLE: ${{ github.event.client_payload.source_article }}
+          NEW_ARTICLE_NAME: ${{ github.event.client_payload.new_article_name }}
+          DELIVERY_URL: ${{ github.event.client_payload.delivery_url }} 
+          
+        # ★実行するファイルを新しいJSファイルに指定します
+        run: node duplicate_page_task.js
+
+      - name: Upload Error Screenshot
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          # エラー時のスクショ名も被らないように変更
+          name: duplicate-error-screenshot
+          path: duplicate-error-screenshot.png
+          retention-days: 3

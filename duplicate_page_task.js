@@ -53,41 +53,21 @@ const axios = require('axios');
     }
 
     // =========================================================
-    // [Step 1-2] フォルダ名を検索してクリック
+    // [Step 1-2] フォルダ名を検索して直接クリック
     // =========================================================
     console.log(`\n[Step 1] 検索窓にフォルダ名「${folderName}」を入力します。`);
     const globalSearch = page.locator('input[type="search"]').first();
     await globalSearch.fill('');
     await globalSearch.pressSequentially(folderName, { delay: 50 });
-    await page.waitForTimeout(3000); // 検索結果が出るまで待機
+    await page.waitForTimeout(3000); // 検索結果が絞り込まれ、自動展開されるのを待機
 
-    // 対象のフォルダを探す
-    const folderLink = page.locator('p.MuiTypography-body1').filter({ hasText: folderName }).first();
-
-    // フォルダ名がまだ見えていない場合のみ、親グループを展開する
-    if (!(await folderLink.isVisible().catch(() => false))) {
-        console.log(`\n[Step 2] 親グループを展開します。`);
-        
-        // ★大改修：UI上の固定テキストを完全に除外し、残ったものを親グループとみなす
-        const parentGroup = page.locator('p.MuiTypography-body1')
-            .filter({ hasNotText: folderName })
-            .filter({ hasNotText: 'お気に入り' })
-            .filter({ hasNotText: 'グループリスト' })
-            .filter({ hasNotText: 'グループ作成' })
-            .filter({ hasNotText: 'フォルダ作成' })
-            .filter({ hasNotText: 'beyond' })
-            .first();
-            
-        if (await parentGroup.isVisible().catch(() => false)) {
-            await parentGroup.click();
-            console.log(`  => 親グループをクリックして展開しました。`);
-            await page.waitForTimeout(2000); // アニメーション待機
-        }
-    }
-
-    console.log(`\n[Step 2.5] フォルダ名をクリックして中に入ります。`);
-    // 展開されるのを最大5秒待ってからクリック
-    await folderLink.waitFor({ state: 'visible', timeout: 5000 });
+    console.log(`\n[Step 2] フォルダ名をクリックして中に入ります。`);
+    // ★大改修：検索結果は自動で親グループが開くため、親をクリックする処理を削除！
+    // 提示いただいた pタグ（MuiTypography-body1）を直接狙い撃ちします。
+    const folderLink = page.locator('p, div, a').filter({ hasText: folderName }).last();
+    
+    // 確実に出現するのを待機（最大10秒）してからクリック
+    await folderLink.waitFor({ state: 'visible', timeout: 10000 });
     await folderLink.click();
     console.log(`  => フォルダ名をクリックしました。`);
     await page.waitForTimeout(3000); 
@@ -134,13 +114,13 @@ const axios = require('axios');
     await page.waitForTimeout(3000);
 
     // =========================================================
-    // [Step 5] 複製ポップアップの操作（この部分はUIに合わせて後ほど調整）
+    // [Step 5] 複製ポップアップの操作（構築中）
     // =========================================================
     console.log(`\n[Step 5] 複製ポップアップに新規情報を入力します。（構築中）`);
     console.log(`  - 予定入力値: 新規ページ名 = ${newArticleName}`);
     console.log(`  - 予定入力値: 配信URL = ${deliveryUrl}`);
     
-    // TODO: ここにポップアップ内のテキストボックスを埋めるコードを追加
+    // TODO: ここにポップアップ入力処理を追加
 
     console.log(`\n🎉 テスト稼働（Step 4まで）完了しました！`);
 

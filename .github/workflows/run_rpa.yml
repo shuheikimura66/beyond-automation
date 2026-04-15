@@ -27,13 +27,24 @@ jobs:
           SQUADBEYOND_ID: ${{ secrets.SQUADBEYOND_ID }}
           SQUADBEYOND_PASS: ${{ secrets.SQUADBEYOND_PASS }}
           GAS_WEBAPP_URL: ${{ secrets.GAS_WEBAPP_URL }}
+          
           ROW_IDX: ${{ github.event.client_payload.row_idx }}
+          
+          # コピー元の情報
+          GROUP_LIST_NAME_SOURCE: ${{ github.event.client_payload.group_list_name_source }}
+          FOLDER_NAME_SOURCE: ${{ github.event.client_payload.folder_name_source }}
+          SOURCE_ARTICLE: ${{ github.event.client_payload.source_article }}
+          
+          # コピー先の情報
+          MCC_TEAM: ${{ github.event.client_payload.mcc_team }}
           DOMAIN: ${{ github.event.client_payload.domain }}
-          GROUP_NAME: ${{ github.event.client_payload.group_name }}
+          GROUP_LIST_NAME_DEST: ${{ github.event.client_payload.group_list_name_dest }}
+          FOLDER_NAME_DEST: ${{ github.event.client_payload.folder_name_dest }}
+          
+          # その他の情報
+          DELIVERY_URL: ${{ github.event.client_payload.delivery_url }}
           ACCOUNT_NAME: ${{ github.event.client_payload.account_name }}
-          TARGET_ARTICLE: ${{ github.event.client_payload.target_article }}
-          SEARCH_KEYWORD: ${{ github.event.client_payload.search_keyword }}
-          DELIVERY_URL: ${{ github.event.client_payload.delivery_url }} 
+          
         run: node task.js
 
       - name: Upload Error Screenshot

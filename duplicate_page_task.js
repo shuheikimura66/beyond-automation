@@ -3,8 +3,10 @@ const axios = require('axios');
 
 (async () => {
   const browser = await chromium.launch(); 
+  // ★クリップボードへのアクセス権限を付与してURLをコピーできるようにする
   const context = await browser.newContext({
-    viewport: { width: 1280, height: 720 }
+    viewport: { width: 1280, height: 720 },
+    permissions: ['clipboard-read', 'clipboard-write']
   });
   const page = await context.newPage();
 
@@ -12,11 +14,11 @@ const axios = require('axios');
   // 1. 変数の設定
   // =========================================================
   const rowIdx = process.env.ROW_IDX; 
-  const groupListName = process.env.GROUP_LIST_NAME; // ★E列: 親グループ名
-  const folderName = process.env.FOLDER_NAME;        // F列: フォルダ名
-  const sourceArticle = process.env.SOURCE_ARTICLE;  // G列: 記事名（コピー元）
-  const newArticleName = process.env.NEW_ARTICLE_NAME; // H列: 新規ページ名
-  const deliveryUrl = process.env.DELIVERY_URL;      // I列: 配信URL設定
+  const groupListName = process.env.GROUP_LIST_NAME; 
+  const folderName = process.env.FOLDER_NAME; 
+  const sourceArticle = process.env.SOURCE_ARTICLE; 
+  const newArticleName = process.env.NEW_ARTICLE_NAME; 
+  const deliveryUrl = process.env.DELIVERY_URL; 
   const gasUrl = process.env.GAS_WEBAPP_URL;
 
   const targetUrl = 'https://app.squadbeyond.com/';
@@ -26,9 +28,7 @@ const axios = require('axios');
     console.log(`🚀 beyondページ複製 RPA開始 (対象行: ${rowIdx})`);
     console.log(`=========================================`);
 
-    // =========================================================
-    // [Step 0] ログイン処理
-    // =========================================================
+    // [Step 0] ログイン
     console.log(`\n[Step 0] ターゲットURLにアクセスします: ${targetUrl}`);
     await page.goto(targetUrl);
     await page.waitForLoadState('load');
@@ -44,7 +44,6 @@ const axios = require('axios');
       await page.waitForLoadState('load');
       await page.waitForTimeout(3000);
     }
-
     const secondLoginButton = page.getByRole('button', { name: 'ログイン', exact: true });
     if (await secondLoginButton.isVisible()) {
       await secondLoginButton.first().click();
@@ -52,61 +51,40 @@ const axios = require('axios');
       await page.waitForLoadState('load');
     }
 
-    // =========================================================
-    // [Step 1] フォルダ名を検索
-    // =========================================================
+    // [Step 1] フォルダ名検索
     console.log(`\n[Step 1] 検索窓にフォルダ名「${folderName}」を入力します。`);
     const globalSearch = page.locator('input[type="search"]').first();
     await globalSearch.fill('');
     await globalSearch.pressSequentially(folderName, { delay: 50 });
-    await page.waitForTimeout(4000); // 検索結果が絞り込まれるのを待機
+    await page.waitForTimeout(4000);
 
-    // =========================================================
-    // [Step 2] スプシで指定された親グループを開く
-    // =========================================================
-    // すでにフォルダが見えているかチェック
+    // [Step 2] 親グループの展開
     const folderLink = page.getByText(folderName).filter({ state: 'visible' }).last();
-
     if (!(await folderLink.isVisible().catch(() => false))) {
         console.log(`\n[Step 2] 親グループ「${groupListName}」を展開します。`);
-        
-        // ★大改修：スプシに入力されたグループ名を直接探してクリック！
         const parentGroup = page.locator('p.MuiTypography-body1').filter({ hasText: groupListName }).first();
-        
         if (await parentGroup.isVisible().catch(() => false)) {
             await parentGroup.click();
-            console.log(`  => 親グループをクリックして展開しました。`);
-            await page.waitForTimeout(2000); // アニメーション待機
-        } else {
-            console.log(`  => ⚠️ 親グループが見つかりません。すでに展開されているか、文字が違う可能性があります。`);
+            await page.waitForTimeout(2000);
         }
     }
 
-    // =========================================================
-    // [Step 2.5] 子フォルダをクリック
-    // =========================================================
+    // [Step 2.5] 子フォルダクリック
     console.log(`\n[Step 2.5] フォルダ名をクリックして中に入ります。`);
     try {
         await folderLink.waitFor({ timeout: 5000 });
         await folderLink.click();
-        console.log(`  => フォルダ名（完全一致）をクリックしました。`);
     } catch (e) {
         const partialName = folderName.split('（')[0].split('(')[0].trim();
-        console.log(`  => ⚠️完全一致で見つからなかったため、部分一致「${partialName}」で再試行します。`);
-        
         const partialLink = page.getByText(partialName).filter({ state: 'visible' }).last();
         await partialLink.waitFor({ timeout: 5000 });
         await partialLink.click();
-        console.log(`  => フォルダ名（部分一致）をクリックしました。`);
     }
     await page.waitForTimeout(3000); 
 
-    // =========================================================
-    // [Step 3] フォルダ内で記事名を検索
-    // =========================================================
+    // [Step 3] 記事名検索
     console.log(`\n[Step 3] フォルダ内で記事「${sourceArticle}」を検索します。`);
     const articleSearchInput = page.locator('label').filter({ hasText: '媒体/名前検索' }).locator('xpath=..').locator('input').first();
-    
     if (await articleSearchInput.isVisible().catch(() => false)) {
         await articleSearchInput.fill('');
         await articleSearchInput.pressSequentially(sourceArticle, { delay: 50 });
@@ -117,13 +95,9 @@ const axios = require('axios');
     }
     await page.waitForTimeout(3000);
 
-    // =========================================================
-    // [Step 4] 右側のメニューボタン ＞ 「beyondページ複製」をクリック
-    // =========================================================
+    // [Step 4] 複製メニュークリック
     console.log(`\n[Step 4] 対象記事のメニューを開き、「beyondページ複製」をクリックします。`);
-    
     const articleRow = page.locator('tr, div, li').filter({ hasText: sourceArticle }).filter({ has: page.locator('button') }).last();
-    
     const lastCell = articleRow.locator('td').last();
     if (await lastCell.isVisible().catch(() => false)) {
         await lastCell.locator('button').first().click();
@@ -136,25 +110,85 @@ const axios = require('axios');
         }
     }
     await page.waitForTimeout(1000);
-
-    console.log(`  => メニュー内から「beyondページ複製」を選択します。`);
     await page.locator('a').filter({ hasText: 'beyondページ複製' }).first().click();
-    
     await page.waitForTimeout(3000);
 
     // =========================================================
     // [Step 5] 複製ポップアップの操作
     // =========================================================
-    console.log(`\n[Step 5] 複製ポップアップに新規情報を入力します。（構築中）`);
-    console.log(`  - 予定入力値: 新規ページ名 = ${newArticleName}`);
-    console.log(`  - 予定入力値: 配信URL = ${deliveryUrl}`);
+    console.log(`\n[Step 5] 複製ポップアップに新規情報を入力します。`);
     
-    // TODO: ここにポップアップ入力処理を追加
+    const pageNameInput = page.getByRole('textbox', { name: 'beyondページ名', exact: true });
+    await pageNameInput.waitFor({ state: 'visible', timeout: 5000 });
+    await pageNameInput.fill('');
+    await pageNameInput.pressSequentially(newArticleName, { delay: 50 });
+    await page.waitForTimeout(500);
+    
+    if (deliveryUrl) {
+      console.log(`  - 配信URL設定を入力します: ${deliveryUrl}`);
+      const deliveryInput = page.getByPlaceholder('半角英数字,-,_が使えます');
+      if (await deliveryInput.isVisible().catch(() => false)) {
+          await deliveryInput.fill('');
+          await deliveryInput.pressSequentially(deliveryUrl, { delay: 50 });
+      }
+    }
+    await page.waitForTimeout(500);
 
-    console.log(`\n🎉 テスト稼働（Step 4まで）完了しました！`);
+    console.log(`  - 「複製する」ボタンを押します。`);
+    const copySubmitBtn = page.getByRole('button', { name: '複製する' });
+    await copySubmitBtn.click();
+    
+    // 確認ポップアップが出る場合
+    const confirmBtn = page.getByText('確認して複製を実行');
+    if (await confirmBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await confirmBtn.click();
+    }
+    
+    console.log(`  => ⏳ 複製処理の完了を待機しています...`);
+    await page.waitForTimeout(8000); // ポップアップが消えて複製が完了するのを待機
+
+    // =========================================================
+    // [Step 6] 複製された記事の検索とURLコピー
+    // =========================================================
+    console.log(`\n[Step 6] 複製されたページ「${newArticleName}」を検索してURLをコピーします。`);
+    
+    // 検索窓をクリアして新規ページ名を検索
+    if (await articleSearchInput.isVisible().catch(() => false)) {
+        await articleSearchInput.fill('');
+        await articleSearchInput.pressSequentially(newArticleName, { delay: 50 });
+    } else {
+        const globalSearch3 = page.locator('input[type="search"]').last();
+        await globalSearch3.fill('');
+        await globalSearch3.pressSequentially(newArticleName, { delay: 50 });
+    }
+    await page.waitForTimeout(3000);
+
+    // メニューを開く
+    const newArticleRow = page.locator('tr, div, li').filter({ hasText: newArticleName }).filter({ has: page.locator('button') }).last();
+    const newLastCell = newArticleRow.locator('td').last();
+    if (await newLastCell.isVisible().catch(() => false)) {
+        await newLastCell.locator('button').first().click();
+    } else {
+        const chainIconCount = await newArticleRow.locator('button').filter({ has: page.locator('path[d^="M67.497"]') }).count();
+        if (chainIconCount > 0) {
+            await newArticleRow.locator('button').nth(-3).click(); 
+        } else {
+            await newArticleRow.locator('button').nth(-2).click(); 
+        }
+    }
+    await page.waitForTimeout(1000);
+
+    console.log(`  - URLコピーのアイコンをクリックします。`);
+    // 指定いただいた FileCopyIcon のSVGが含まれるメニュー項目をクリック
+    await page.locator('.MuiPopover-root, [role="menu"]').locator('[data-testid="FileCopyIcon"]').locator('xpath=..').first().click();
+    await page.waitForTimeout(1000);
+
+    // クリップボードからコピーした内容（URL）を取得！
+    const copiedUrl = await page.evaluate(() => navigator.clipboard.readText());
+    console.log(`  => 🎉 取得したURL: ${copiedUrl}`);
 
     if (gasUrl) {
-      await axios.post(gasUrl, { row_idx: rowIdx, entry_url: "", status: 'success', task_type: 'duplicate' });
+      await axios.post(gasUrl, { row_idx: rowIdx, entry_url: copiedUrl, status: 'success', task_type: 'duplicate' });
     }
 
   } catch (error) {

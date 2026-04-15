@@ -14,16 +14,16 @@ const axios = require('axios');
   // =========================================================
   const rowIdx = process.env.ROW_IDX;
   
-  const groupListSource = process.env.GROUP_LIST_NAME_SOURCE; // E列
-  const sourceFolder = process.env.FOLDER_NAME_SOURCE;       // F列
-  const sourceArticle = process.env.SOURCE_ARTICLE;          // G列
+  const groupListSource = process.env.GROUP_LIST_NAME_SOURCE; 
+  const sourceFolder = process.env.FOLDER_NAME_SOURCE;       
+  const sourceArticle = process.env.SOURCE_ARTICLE;          
   
-  const domain = process.env.DOMAIN;                         // I列
-  const groupListDest = process.env.GROUP_LIST_NAME_DEST;    // J列
-  const destFolder = process.env.FOLDER_NAME_DEST;           // K列（★これを使ってフォルダ作成します）
+  const domain = process.env.DOMAIN;                         
+  const groupListDest = process.env.GROUP_LIST_NAME_DEST;    
+  const destFolder = process.env.FOLDER_NAME_DEST;           
   
-  const deliveryUrl = process.env.DELIVERY_URL;              // L列
-  const accountName = process.env.ACCOUNT_NAME;              // M列
+  const deliveryUrl = process.env.DELIVERY_URL;              
+  const accountName = process.env.ACCOUNT_NAME;              
   
   const gasUrl = process.env.GAS_WEBAPP_URL;
   const targetUrl = 'https://app.squadbeyond.com/';
@@ -78,7 +78,6 @@ const axios = require('axios');
     console.log(`\n[Step 5] フォルダ作成情報を入力中...`);
     const folderNameInput = page.locator('label:has-text("フォルダ名")').locator('xpath=..').locator('input').last();
     await folderNameInput.fill('');
-    // ★修正：アカウント名ではなく、K列の「フォルダ名（destFolder）」を入力する
     await folderNameInput.pressSequentially(destFolder, { delay: 50 });
     await page.waitForTimeout(1000);
     
@@ -100,12 +99,18 @@ const axios = require('axios');
     // [Step 6] コピー元フォルダの検索
     // =========================================================
     console.log(`\n[Step 6] 記事をコピーするため、原本グループ「${groupListSource}」を検索します。`);
+    
+    // ★追加：画面上に残っているかもしれないポップアップを強制的に消す
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
+
     const globalSearch = page.locator('input[type="search"]').first();
     await globalSearch.fill('');
     await globalSearch.pressSequentially(groupListSource, { delay: 50 });
     await page.waitForTimeout(4000);
 
-    const originalGroup = page.getByText(groupListSource).last();
+    // ★修正：大雑把な指定をやめ、確実に文字要素を狙う
+    const originalGroup = page.locator('p.MuiTypography-body1').filter({ hasText: groupListSource }).first();
     if (await originalGroup.isVisible().catch(() => false)) {
         await originalGroup.click();
         await page.waitForTimeout(2000);
@@ -160,7 +165,6 @@ const axios = require('axios');
     await pageNameInput.pressSequentially(sourceArticle, { delay: 50 });
     await page.waitForTimeout(1000);
     
-    // ★修正：以前のコード通り「フルアウト」に完全固定
     console.log(`  - チームを「フルアウト」に設定します。`);
     const teamBox = page.locator('label').filter({ hasText: /^チーム$/ }).locator('xpath=..').last();
     await teamBox.click();
@@ -211,12 +215,18 @@ const axios = require('axios');
     // [Step 10] コピー先フォルダへ移動してURLをコピー
     // =========================================================
     console.log(`\n[Step 10] コピー先の親グループへ移動します: ${groupListDest}`);
+    
+    // ★追加：ここでも念のため、邪魔なメニューを強制リセット
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
+
     const globalSearchDest = page.locator('input[type="search"]').first();
     await globalSearchDest.fill('');
     await globalSearchDest.pressSequentially(groupListDest, { delay: 50 });
     await page.waitForTimeout(4000);
 
-    const destParentGroup = page.getByText(groupListDest).last();
+    // ★修正：大雑把な指定をやめ、確実に文字要素を狙う
+    const destParentGroup = page.locator('p.MuiTypography-body1').filter({ hasText: groupListDest }).first();
     if (await destParentGroup.isVisible().catch(() => false)) {
         await destParentGroup.click();
         await page.waitForTimeout(2000);

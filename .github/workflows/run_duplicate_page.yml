@@ -29,11 +29,14 @@ jobs:
           GAS_WEBAPP_URL: ${{ secrets.GAS_WEBAPP_URL }}
           
           ROW_IDX: ${{ github.event.client_payload.row_idx }}
-          GROUP_LIST_NAME: ${{ github.event.client_payload.group_list_name }}
+          GROUP_LIST_NAME_SOURCE: ${{ github.event.client_payload.group_list_name_source }}
           FOLDER_NAME_SOURCE: ${{ github.event.client_payload.folder_name_source }}
-          FOLDER_NAME_DEST: ${{ github.event.client_payload.folder_name_dest }}
           SOURCE_ARTICLE: ${{ github.event.client_payload.source_article }}
+          
+          GROUP_LIST_NAME_DEST: ${{ github.event.client_payload.group_list_name_dest }}
+          FOLDER_NAME_DEST: ${{ github.event.client_payload.folder_name_dest }}
           NEW_ARTICLE_NAME: ${{ github.event.client_payload.new_article_name }}
+          
           DELIVERY_URL: ${{ github.event.client_payload.delivery_url }} 
           
         run: node duplicate_page_task.js

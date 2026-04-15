@@ -10,21 +10,20 @@ const axios = require('axios');
   const page = await context.newPage();
 
   // =========================================================
-  // 1. 変数の設定（新しい列構造）
+  // 1. 変数の設定
   // =========================================================
   const rowIdx = process.env.ROW_IDX;
   
-  const groupListSource = process.env.GROUP_LIST_NAME_SOURCE; 
-  const sourceFolder = process.env.FOLDER_NAME_SOURCE;       
-  const sourceArticle = process.env.SOURCE_ARTICLE;          
+  const groupListSource = process.env.GROUP_LIST_NAME_SOURCE; // E列
+  const sourceFolder = process.env.FOLDER_NAME_SOURCE;       // F列
+  const sourceArticle = process.env.SOURCE_ARTICLE;          // G列
   
-  const mccTeam = process.env.MCC_TEAM;                      
-  const domain = process.env.DOMAIN;                         
-  const groupListDest = process.env.GROUP_LIST_NAME_DEST;    
-  const destFolder = process.env.FOLDER_NAME_DEST;           
+  const domain = process.env.DOMAIN;                         // I列
+  const groupListDest = process.env.GROUP_LIST_NAME_DEST;    // J列
+  const destFolder = process.env.FOLDER_NAME_DEST;           // K列（★これを使ってフォルダ作成します）
   
-  const deliveryUrl = process.env.DELIVERY_URL;              
-  const accountName = process.env.ACCOUNT_NAME;              
+  const deliveryUrl = process.env.DELIVERY_URL;              // L列
+  const accountName = process.env.ACCOUNT_NAME;              // M列
   
   const gasUrl = process.env.GAS_WEBAPP_URL;
   const targetUrl = 'https://app.squadbeyond.com/';
@@ -77,10 +76,10 @@ const axios = require('axios');
     await page.waitForTimeout(3000);
 
     console.log(`\n[Step 5] フォルダ作成情報を入力中...`);
-    // ★ユーザー提供の「確実に動いていた」指定方法に完全リバート（見えない要素対策として念のため .last() のみ付与）
     const folderNameInput = page.locator('label:has-text("フォルダ名")').locator('xpath=..').locator('input').last();
     await folderNameInput.fill('');
-    await folderNameInput.pressSequentially(accountName, { delay: 50 });
+    // ★修正：アカウント名ではなく、K列の「フォルダ名（destFolder）」を入力する
+    await folderNameInput.pressSequentially(destFolder, { delay: 50 });
     await page.waitForTimeout(1000);
     
     const domainLabelBox = page.locator('label:has-text("認証済み独自ドメイン")').locator('xpath=..').last();
@@ -94,7 +93,6 @@ const axios = require('axios');
     await createBtn.click();
     console.log(`  => ⏳ フォルダ作成中...`);
     
-    // ★ポップアップが消えるのを確実に待機
     await createBtn.waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {});
     await page.waitForTimeout(5000);
 
@@ -162,11 +160,12 @@ const axios = require('axios');
     await pageNameInput.pressSequentially(sourceArticle, { delay: 50 });
     await page.waitForTimeout(1000);
     
-    console.log(`  - チームを「${mccTeam}」に設定します。`);
+    // ★修正：以前のコード通り「フルアウト」に完全固定
+    console.log(`  - チームを「フルアウト」に設定します。`);
     const teamBox = page.locator('label').filter({ hasText: /^チーム$/ }).locator('xpath=..').last();
     await teamBox.click();
     await page.waitForTimeout(1000);
-    await page.getByRole('option', { name: mccTeam, exact: true }).last().click();
+    await page.getByRole('option', { name: 'フルアウト', exact: true }).last().click();
     await page.waitForTimeout(1000);
 
     console.log(`  - 移動先フォルダ「${destFolder}」を直接検索・選択します。`);

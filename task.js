@@ -4,8 +4,7 @@ const axios = require('axios');
 (async () => {
   const browser = await chromium.launch();
   const context = await browser.newContext({
-    viewport: { width: 1280, height: 720 },
-    permissions: ['clipboard-read', 'clipboard-write']
+    viewport: { width: 1280, height: 720 }
   });
   const page = await context.newPage();
 
@@ -100,7 +99,6 @@ const axios = require('axios');
     // =========================================================
     console.log(`\n[Step 6] 記事をコピーするため、原本グループ「${groupListSource}」を検索します。`);
     
-    // ★追加：画面上に残っているかもしれないポップアップを強制的に消す
     await page.keyboard.press('Escape');
     await page.waitForTimeout(500);
 
@@ -109,7 +107,6 @@ const axios = require('axios');
     await globalSearch.pressSequentially(groupListSource, { delay: 50 });
     await page.waitForTimeout(4000);
 
-    // ★修正：大雑把な指定をやめ、確実に文字要素を狙う
     const originalGroup = page.locator('p.MuiTypography-body1').filter({ hasText: groupListSource }).first();
     if (await originalGroup.isVisible().catch(() => false)) {
         await originalGroup.click();
@@ -211,68 +208,13 @@ const axios = require('axios');
     console.log(`  => ✅ 複製完了！ポップアップが閉じました。`);
     await page.waitForTimeout(5000); 
 
-    // =========================================================
-    // [Step 10] コピー先フォルダへ移動してURLをコピー
-    // =========================================================
-    console.log(`\n[Step 10] コピー先の親グループへ移動します: ${groupListDest}`);
-    
-    // ★追加：ここでも念のため、邪魔なメニューを強制リセット
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(500);
-
-    const globalSearchDest = page.locator('input[type="search"]').first();
-    await globalSearchDest.fill('');
-    await globalSearchDest.pressSequentially(groupListDest, { delay: 50 });
-    await page.waitForTimeout(4000);
-
-    // ★修正：大雑把な指定をやめ、確実に文字要素を狙う
-    const destParentGroup = page.locator('p.MuiTypography-body1').filter({ hasText: groupListDest }).first();
-    if (await destParentGroup.isVisible().catch(() => false)) {
-        await destParentGroup.click();
-        await page.waitForTimeout(2000);
-    }
-    
-    try {
-        await page.locator('div, li').filter({ hasText: destFolder }).filter({ has: page.locator('button') }).last().click();
-    } catch (e) {
-        const partialDest = destFolder.split('（')[0].split('(')[0].trim();
-        await page.locator('div, li').filter({ hasText: partialDest }).filter({ has: page.locator('button') }).last().click();
-    }
-    console.log(`  => フォルダの中身のロードを待機しています...`);
-    await page.waitForTimeout(5000);
-
-    console.log(`\n[Step 11] 複製されたページを検索してURLをコピーします。`);
-    const articleSearchInput3 = page.locator('label').filter({ hasText: '媒体/名前検索' }).locator('xpath=..').locator('input').first();
-    await articleSearchInput3.fill('');
-    await articleSearchInput3.pressSequentially(sourceArticle, { delay: 50 });
-    await page.waitForTimeout(4000);
-
-    const finalArticleRow = page.locator('tr, div, li').filter({ hasText: sourceArticle }).filter({ has: page.locator('button') }).last();
-
-    const finalLastCell = finalArticleRow.locator('td').last();
-    if (await finalLastCell.isVisible().catch(() => false)) {
-        await finalLastCell.locator('button').first().click();
-    } else {
-        const chainIconCount = await finalArticleRow.locator('button').filter({ has: page.locator('path[d^="M67.497"]') }).count();
-        if (chainIconCount > 0) {
-            await finalArticleRow.locator('button').nth(-3).click(); 
-        } else {
-            await finalArticleRow.locator('button').nth(-2).click(); 
-        }
-    }
-    await page.waitForTimeout(1000);
-
-    console.log(`  - URLコピーのアイコンをクリックします。`);
-    await page.locator('.MuiPopover-root, [role="menu"]').locator('[data-testid="FileCopyIcon"]').locator('xpath=..').last().click();
-    await page.waitForTimeout(1000);
-
-    const copiedUrl = await page.evaluate(() => navigator.clipboard.readText());
-    console.log(`  => 🎉 取得したURL: ${copiedUrl}`);
+    // URLコピーのステップをまるごと削除し、すぐに完了処理へ移行します。
 
     await page.screenshot({ path: 'final-check.png', fullPage: true });
 
     if (gasUrl) {
-      await axios.post(gasUrl, { row_idx: rowIdx, entry_url: copiedUrl, status: 'success' });
+      // entry_urlを空（""）にして送信し、GAS側で完了ステータスに変更させます
+      await axios.post(gasUrl, { row_idx: rowIdx, entry_url: "", status: 'success' });
     }
     console.log(`\n🎉 RPA処理が完了しました！`);
 

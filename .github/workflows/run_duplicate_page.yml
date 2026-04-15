@@ -22,7 +22,7 @@ jobs:
           npm install playwright axios
           npx playwright install --with-deps chromium
 
-- name: Run Duplicate Script
+      - name: Run Duplicate Script
         env:
           SQUADBEYOND_ID: ${{ secrets.SQUADBEYOND_ID }}
           SQUADBEYOND_PASS: ${{ secrets.SQUADBEYOND_PASS }}
@@ -30,7 +30,6 @@ jobs:
           
           ROW_IDX: ${{ github.event.client_payload.row_idx }}
           GROUP_LIST_NAME: ${{ github.event.client_payload.group_list_name }}
-          # ★フォルダ変数を2つに分けました！
           FOLDER_NAME_SOURCE: ${{ github.event.client_payload.folder_name_source }}
           FOLDER_NAME_DEST: ${{ github.event.client_payload.folder_name_dest }}
           SOURCE_ARTICLE: ${{ github.event.client_payload.source_article }}

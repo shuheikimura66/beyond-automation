@@ -204,25 +204,33 @@ const axios = require('axios');
     await page.waitForTimeout(4000);
     
     console.log(`\n[Step 5] 「別フォルダへ複製」を選択します。`);
-    // 記事の行を特定
-    const articleRow = page.locator('div, li, tr').filter({ hasText: sourceArticle }).last();
-    await articleRow.scrollIntoViewIfNeeded().catch(() => {});
     
-    // ★改修: 行にマウスを乗せて（hover）隠しボタンを出現させる
+    // ★大改修: 記事のテキストに直接ホバーさせて、確実にボタンを出現させる
     console.log(`  - 記事にマウスカーソルを合わせてメニューボタンを出現させます。`);
-    await articleRow.hover();
+    const targetArticleEl = page.getByText(sourceArticle).filter({ state: 'visible' }).first();
+    await targetArticleEl.scrollIntoViewIfNeeded().catch(() => {});
+    await targetArticleEl.hover();
     await page.waitForTimeout(1000);
 
-    // ★改修: 出現したボタンの中から「右から2番目（...）」をクリックする
     console.log(`  - メニュー（...）ボタンをクリックします。`);
-    const rowButtons = articleRow.locator('button');
-    const btnCount = await rowButtons.count();
-    
-    // 右端は歯車（設定）アイコンなので、その後ろ（-2）を狙う
-    if (btnCount > 1) {
-        await rowButtons.nth(btnCount - 2).click(); 
-    } else {
-        await rowButtons.last().click();
+    try {
+        // ホバーで出現した「beyondページ複製」ボタンを特定し、その親要素（コンテナ）を取得
+        const beyondCopyBtn = page.getByText('beyondページ複製', { exact: true }).filter({ state: 'visible' }).last();
+        const btnContainer = beyondCopyBtn.locator('xpath=..');
+        
+        // コンテナ内の全ボタン（または役割を持つdiv要素）を取得
+        const actionBtns = btnContainer.locator('button, [role="button"], div:has(svg)');
+        const count = await actionBtns.count();
+        
+        if (count > 1) {
+            // 右端は「歯車（設定）」なので、その1つ左（-2）をクリックする
+            await actionBtns.nth(count - 2).click();
+        } else {
+            // 万が一取れなければ隣接要素を直接クリック
+            await page.locator('svg:right-of(:text("beyondページ複製"))').first().click();
+        }
+    } catch(e) {
+        await page.locator('svg:right-of(:text("beyondページ複製"))').first().click();
     }
     await page.waitForTimeout(1000);
 

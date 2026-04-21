@@ -4,7 +4,8 @@ const axios = require('axios');
 (async () => {
   const browser = await chromium.launch();
   const context = await browser.newContext({
-    viewport: { width: 1280, height: 720 }
+    viewport: { width: 1280, height: 720 },
+    permissions: ['clipboard-read', 'clipboard-write']
   });
   const page = await context.newPage();
 
@@ -56,6 +57,27 @@ const axios = require('axios');
       await page.waitForTimeout(5000); 
       await page.waitForLoadState('load');
     }
+
+    // =========================================================
+    // ★追加: [Step 1.5] 新UI対応（ページメニューのクリック）
+    // =========================================================
+    console.log(`\n[Step 1.5] 新UI対応：「ページ」メニューをクリックして一覧へ移動します。`);
+    // ご提示いただいたSVGパスを持つアイコンを探す
+    const pageMenuIcon = page.locator('svg').filter({ has: page.locator('path[d^="M11 8.5V6.75C11 5.50736"]') }).first();
+    
+    // アイコンの親要素（ボタンやリンク）を探してクリック、見つからなければ直接クリック
+    try {
+        const menuWrapper = pageMenuIcon.locator('xpath=ancestor::button | ancestor::a | ancestor::div[@role="button" or @role="menuitem"]').first();
+        if (await menuWrapper.isVisible({ timeout: 3000 }).catch(() => false)) {
+            await menuWrapper.click();
+        } else {
+            await pageMenuIcon.click();
+        }
+    } catch(e) {
+        await pageMenuIcon.click();
+    }
+    console.log(`  => ページ一覧画面のロードを待機しています...`);
+    await page.waitForTimeout(5000);
 
     // =========================================================
     // [Step 2-5] コピー先へのフォルダ作成処理
@@ -208,12 +230,9 @@ const axios = require('axios');
     console.log(`  => ✅ 複製完了！ポップアップが閉じました。`);
     await page.waitForTimeout(5000); 
 
-    // URLコピーのステップをまるごと削除し、すぐに完了処理へ移行します。
-
     await page.screenshot({ path: 'final-check.png', fullPage: true });
 
     if (gasUrl) {
-      // entry_urlを空（""）にして送信し、GAS側で完了ステータスに変更させます
       await axios.post(gasUrl, { row_idx: rowIdx, entry_url: "", status: 'success' });
     }
     console.log(`\n🎉 RPA処理が完了しました！`);

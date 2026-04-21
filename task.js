@@ -205,7 +205,6 @@ const axios = require('axios');
     
     console.log(`\n[Step 5] 「別フォルダへ複製」を選択します。`);
     
-    // ★大改修: 記事のテキストに直接ホバーさせて、確実にボタンを出現させる
     console.log(`  - 記事にマウスカーソルを合わせてメニューボタンを出現させます。`);
     const targetArticleEl = page.getByText(sourceArticle).filter({ state: 'visible' }).first();
     await targetArticleEl.scrollIntoViewIfNeeded().catch(() => {});
@@ -214,19 +213,15 @@ const axios = require('axios');
 
     console.log(`  - メニュー（...）ボタンをクリックします。`);
     try {
-        // ホバーで出現した「beyondページ複製」ボタンを特定し、その親要素（コンテナ）を取得
         const beyondCopyBtn = page.getByText('beyondページ複製', { exact: true }).filter({ state: 'visible' }).last();
         const btnContainer = beyondCopyBtn.locator('xpath=..');
         
-        // コンテナ内の全ボタン（または役割を持つdiv要素）を取得
         const actionBtns = btnContainer.locator('button, [role="button"], div:has(svg)');
         const count = await actionBtns.count();
         
         if (count > 1) {
-            // 右端は「歯車（設定）」なので、その1つ左（-2）をクリックする
             await actionBtns.nth(count - 2).click();
         } else {
-            // 万が一取れなければ隣接要素を直接クリック
             await page.locator('svg:right-of(:text("beyondページ複製"))').first().click();
         }
     } catch(e) {
@@ -234,67 +229,72 @@ const axios = require('axios');
     }
     await page.waitForTimeout(1000);
 
-    // その後「別フォルダへ複製」をクリック
     await page.getByText('別フォルダへ複製', { exact: true }).last().click();
     await page.waitForTimeout(3000);
 
     // =========================================================
-    // [Step 6] 複製設定の入力（新ウィザード）
+    // ★大改修: [Step 6] 複製設定の入力（新ウィザード・ポップアップ完全対応）
     // =========================================================
     console.log(`\n[Step 6] 新規複製ウィザードを進めます。`);
 
-    const comboboxes = page.locator('button[role="combobox"]');
+    // 背景要素の誤爆を防ぐため、今開いているダイアログ（ポップアップ）の中だけに範囲を絞る
+    const activeModal = page.locator('div[role="dialog"]').last();
 
     console.log(`  - チームを「現在のチーム内」に設定します。`);
-    await comboboxes.first().click();
+    // ① ダイアログ内の「選択してください」をクリック
+    await activeModal.locator('button[role="combobox"]').filter({ hasText: '選択してください' }).first().click();
     await page.waitForTimeout(500);
+    // ②「現在のチーム内」を選択
     await page.getByText('現在のチーム内', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
     console.log(`  - グループ「${groupListDest}」を検索して選択します。`);
-    await comboboxes.nth(1).click();
+    // チーム選択後に出現する2番目のコンボボックス
+    await activeModal.locator('button[role="combobox"]').nth(1).click();
     await page.keyboard.type(groupListDest, { delay: 50 });
     await page.waitForTimeout(1000);
     await page.getByText(groupListDest, { exact: true }).last().click();
     await page.waitForTimeout(500);
 
     console.log(`  - 移動先フォルダ「${destFolder}」を検索して選択します。`);
-    await comboboxes.nth(2).click();
+    // 出現する3番目のコンボボックス
+    await activeModal.locator('button[role="combobox"]').nth(2).click();
     await page.keyboard.type(destFolder, { delay: 50 });
     await page.waitForTimeout(1000);
     await page.getByText(destFolder, { exact: true }).last().click();
     await page.waitForTimeout(500);
 
-    await page.getByText('次へ', { exact: true }).last().click();
+    // 以降の「次へ」等もダイアログ内の要素に限定
+    await activeModal.getByText('次へ', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
     if (deliveryUrl) {
       console.log(`  - 配信URL設定を入力します: ${deliveryUrl}`);
-      const deliveryInput = page.getByPlaceholder('半角英数字, -, _ が使えます').last();
+      const deliveryInput = activeModal.getByPlaceholder('半角英数字, -, _ が使えます').last();
       await deliveryInput.fill('');
       await deliveryInput.pressSequentially(deliveryUrl, { delay: 50 });
       await page.waitForTimeout(1000);
     }
     
-    await page.getByText('保存して次へ', { exact: true }).last().click();
+    await activeModal.getByText('保存して次へ', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
-    await page.getByText('次へ', { exact: true }).last().click();
+    await activeModal.getByText('次へ', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
-    await page.getByText('次へ', { exact: true }).last().click();
+    await activeModal.getByText('次へ', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
-    await page.getByText('次へ', { exact: true }).last().click();
+    await activeModal.getByText('次へ', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
-    await page.getByText('置換せずスキップ', { exact: true }).last().click();
+    await activeModal.getByText('置換せずスキップ', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
-    await page.getByText('設定確認', { exact: true }).last().click();
+    await activeModal.getByText('設定確認', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
-    const finalCopyBtn = page.getByText('この内容でページを複製する', { exact: true }).last();
+    const finalCopyBtn = activeModal.getByText('この内容でページを複製する', { exact: true }).last();
     await finalCopyBtn.click();
     console.log(`  => ⏳ 複製処理の完了を待機しています...`);
     

@@ -186,18 +186,16 @@ const axios = require('axios');
     await page.waitForTimeout(5000);
     
     // =========================================================
-    // ★改修: [Step 4] 新UIでの記事検索とメニュー展開
+    // [Step 4] 新UIでの記事検索とメニュー展開
     // =========================================================
     console.log(`\n[Step 4] フォルダ内で記事「${sourceArticle}」を検索します。`);
     
-    // 新UIの「フォルダ内検索」を利用
     const folderSearchInput = page.getByPlaceholder('フォルダ内検索').first();
     if (await folderSearchInput.isVisible({ timeout: 3000 }).catch(() => false)) {
         await folderSearchInput.click();
         await folderSearchInput.fill('');
         await folderSearchInput.pressSequentially(sourceArticle, { delay: 50 });
     } else {
-        // 万が一見つからなかった場合はCtrl+Fで強制検索
         await page.keyboard.press('Control+F');
         await page.keyboard.press('Meta+F');
         await page.waitForTimeout(500);
@@ -210,8 +208,22 @@ const axios = require('axios');
     const articleRow = page.locator('div, li, tr').filter({ hasText: sourceArticle }).last();
     await articleRow.scrollIntoViewIfNeeded().catch(() => {});
     
-    // ① 横棒版（...）ボタンを押す
-    await articleRow.locator('button').last().click();
+    // ★改修: 行にマウスを乗せて（hover）隠しボタンを出現させる
+    console.log(`  - 記事にマウスカーソルを合わせてメニューボタンを出現させます。`);
+    await articleRow.hover();
+    await page.waitForTimeout(1000);
+
+    // ★改修: 出現したボタンの中から「右から2番目（...）」をクリックする
+    console.log(`  - メニュー（...）ボタンをクリックします。`);
+    const rowButtons = articleRow.locator('button');
+    const btnCount = await rowButtons.count();
+    
+    // 右端は歯車（設定）アイコンなので、その後ろ（-2）を狙う
+    if (btnCount > 1) {
+        await rowButtons.nth(btnCount - 2).click(); 
+    } else {
+        await rowButtons.last().click();
+    }
     await page.waitForTimeout(1000);
 
     // その後「別フォルダへ複製」をクリック
@@ -219,21 +231,18 @@ const axios = require('axios');
     await page.waitForTimeout(3000);
 
     // =========================================================
-    // ★改修: [Step 6] 複製設定の入力（新ウィザード）
+    // [Step 6] 複製設定の入力（新ウィザード）
     // =========================================================
     console.log(`\n[Step 6] 新規複製ウィザードを進めます。`);
 
-    // 画面内のすべてのコンボボックス（プルダウン）を取得
     const comboboxes = page.locator('button[role="combobox"]');
 
-    // ②「選択してください」で「現在のチーム内」を選択
     console.log(`  - チームを「現在のチーム内」に設定します。`);
     await comboboxes.first().click();
     await page.waitForTimeout(500);
     await page.getByText('現在のチーム内', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
-    // ③ グループリスト検索・選択
     console.log(`  - グループ「${groupListDest}」を検索して選択します。`);
     await comboboxes.nth(1).click();
     await page.keyboard.type(groupListDest, { delay: 50 });
@@ -241,7 +250,6 @@ const axios = require('axios');
     await page.getByText(groupListDest, { exact: true }).last().click();
     await page.waitForTimeout(500);
 
-    // ④ フォルダ名検索・選択
     console.log(`  - 移動先フォルダ「${destFolder}」を検索して選択します。`);
     await comboboxes.nth(2).click();
     await page.keyboard.type(destFolder, { delay: 50 });
@@ -249,11 +257,9 @@ const axios = require('axios');
     await page.getByText(destFolder, { exact: true }).last().click();
     await page.waitForTimeout(500);
 
-    // ⑤ 次へ
     await page.getByText('次へ', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
-    // ⑥ 配信URL設定
     if (deliveryUrl) {
       console.log(`  - 配信URL設定を入力します: ${deliveryUrl}`);
       const deliveryInput = page.getByPlaceholder('半角英数字, -, _ が使えます').last();
@@ -262,31 +268,24 @@ const axios = require('axios');
       await page.waitForTimeout(1000);
     }
     
-    // ⑦ 保存して次へ
     await page.getByText('保存して次へ', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
-    // ⑧ 次へ
     await page.getByText('次へ', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
-    // ⑨ 次へ
     await page.getByText('次へ', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
-    // ⑩ 次へ
     await page.getByText('次へ', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
-    // ⑪ 置換せずスキップ
     await page.getByText('置換せずスキップ', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
-    // ⑫ 設定確認
     await page.getByText('設定確認', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
-    // ⑬ この内容でページを複製する
     const finalCopyBtn = page.getByText('この内容でページを複製する', { exact: true }).last();
     await finalCopyBtn.click();
     console.log(`  => ⏳ 複製処理の完了を待機しています...`);

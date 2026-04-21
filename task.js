@@ -4,8 +4,7 @@ const axios = require('axios');
 (async () => {
   const browser = await chromium.launch();
   const context = await browser.newContext({
-    viewport: { width: 1280, height: 720 },
-    permissions: ['clipboard-read', 'clipboard-write']
+    viewport: { width: 1280, height: 720 }
   });
   const page = await context.newPage();
 
@@ -59,13 +58,27 @@ const axios = require('axios');
     }
 
     // =========================================================
-    // ★追加: [Step 1.5] 新UI対応（ページメニューのクリック）
+    // ★追加: [Step 1.2] 新旧デザインの確認と切り替え
+    // =========================================================
+    console.log(`\n[Step 1.2] UIデザインの確認を行います。`);
+    // 「新デザインを試す」というテキストを持つ要素を探す
+    const newDesignBtn = page.locator('div, button').filter({ hasText: '新デザインを試す' }).last();
+    
+    if (await newDesignBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+        console.log(`  => 🎨 旧デザインを検知しました。「新デザインを試す」をクリックして切り替えます。`);
+        await newDesignBtn.click();
+        await page.waitForLoadState('load');
+        await page.waitForTimeout(5000); // 切り替え後のロードをしっかり待つ
+    } else {
+        console.log(`  => ✨ 既に新デザインであることを確認しました。`);
+    }
+
+    // =========================================================
+    // [Step 1.5] 新UI対応（ページメニューのクリック）
     // =========================================================
     console.log(`\n[Step 1.5] 新UI対応：「ページ」メニューをクリックして一覧へ移動します。`);
-    // ご提示いただいたSVGパスを持つアイコンを探す
     const pageMenuIcon = page.locator('svg').filter({ has: page.locator('path[d^="M11 8.5V6.75C11 5.50736"]') }).first();
     
-    // アイコンの親要素（ボタンやリンク）を探してクリック、見つからなければ直接クリック
     try {
         const menuWrapper = pageMenuIcon.locator('xpath=ancestor::button | ancestor::a | ancestor::div[@role="button" or @role="menuitem"]').first();
         if (await menuWrapper.isVisible({ timeout: 3000 }).catch(() => false)) {

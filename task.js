@@ -93,63 +93,48 @@ const axios = require('axios');
     // =========================================================
     console.log(`\n[Step 2] コピー先のフォルダを新規作成します（新UIフロー）。`);
 
-    // ① 新規作成アイコンをクリック
     console.log(`  - フォルダ作成アイコンをクリックします。`);
     await page.locator('[data-testid="generate-folder-icon"]').click();
     await page.waitForTimeout(1000);
 
-    // ② ポップアップ内の「フォルダ作成」をクリック
     await page.locator('div[role="dialog"]').getByText('フォルダ作成').first().click();
     await page.waitForTimeout(1000);
 
-    // ③ 「登録済みドメインから選択」をクリック
     await page.getByText('登録済みドメインから選択').click();
     await page.waitForTimeout(500);
 
-    // ④ 「独自ドメイン」をクリック
     await page.getByText('フルアウトが登録したドメインから選択').click();
     await page.waitForTimeout(500);
 
-    // ⑤ 「独自ドメインを選択する」ドロップダウンをクリック
     await page.getByRole('combobox').filter({ hasText: '独自ドメインを選択する' }).click();
     await page.waitForTimeout(1000);
 
-    // ⑥ スプシのドメインを「検索」して選択
     console.log(`  - ドメイン「${domain}」を検索して選択します。`);
-    // 自動でカーソルが当たっているのでそのまま入力
     await page.keyboard.type(domain, { delay: 50 });
-    await page.waitForTimeout(1000); // 絞り込み結果が出るのを待つ
+    await page.waitForTimeout(1000); 
     
-    // 表示された同名のドメインをクリック（role="option"でない可能性も考慮し完全一致テキストのlastを指定）
     await page.getByText(domain, { exact: true }).last().click();
     await page.waitForTimeout(500);
 
-    // ⑦ 「次へ」をクリック
     await page.getByText('次へ', { exact: true }).click();
     await page.waitForTimeout(500);
 
-    // ⑧ フォルダグループのドロップダウン（指定しない）をクリック
     await page.getByRole('combobox').filter({ hasText: '指定しない' }).click();
     await page.waitForTimeout(500);
 
-    // ⑨ グループリストを選択
     console.log(`  - グループ「${groupListDest}」を選択します。`);
     await page.getByRole('option', { name: groupListDest, exact: true }).click();
     await page.waitForTimeout(500);
 
-    // ⑩ 「次へ」をクリック
     await page.getByText('次へ', { exact: true }).click();
     await page.waitForTimeout(500);
 
-    // ⑪ もう一度「次へ」をクリック
     await page.getByText('次へ', { exact: true }).click();
     await page.waitForTimeout(500);
 
-    // ⑫ 「設定確認」をクリック
     await page.getByText('設定確認', { exact: true }).click();
     await page.waitForTimeout(1000);
 
-    // ⑬ 「新しいフォルダ」をクリックして文字を全削除
     console.log(`  - フォルダ名を入力します: ${destFolder}`);
     await page.getByText('新しいフォルダ', { exact: false }).click();
     await page.waitForTimeout(500);
@@ -158,37 +143,42 @@ const axios = require('axios');
     await page.keyboard.press('Backspace');
     await page.waitForTimeout(500);
 
-    // ⑭ スプシのフォルダ名を記入
     await page.keyboard.type(destFolder, { delay: 50 });
     await page.waitForTimeout(1000);
 
-    // ⑮ 「作成する」をクリック
     const createBtn = page.getByText('作成する', { exact: true }).last();
     await createBtn.click();
     console.log(`  => ⏳ フォルダ作成中...`);
     
-    // ポップアップが消えるのを待つ
     await createBtn.waitFor({ state: 'hidden', timeout: 20000 }).catch(() => {});
     await page.waitForTimeout(5000);
 
     // =========================================================
-    // [Step 3] コピー元フォルダの検索
+    // ★改修: [Step 3] コピー元フォルダの検索
     // =========================================================
     console.log(`\n[Step 3] 記事をコピーするため、原本グループ「${groupListSource}」を検索します。`);
     await page.keyboard.press('Escape'); 
     await page.waitForTimeout(500);
 
-    const globalSearch = page.locator('input[type="search"]').first();
-    await globalSearch.fill('');
-    await globalSearch.pressSequentially(groupListSource, { delay: 50 });
-    await page.waitForTimeout(4000);
+    // ① 新UIの「検索」ボタンをクリック
+    console.log(`  - 左サイドバーの「検索」ボタンをクリックします。`);
+    await page.getByText('検索', { exact: true }).first().click();
+    await page.waitForTimeout(1000);
 
-    const originalGroup = page.locator('p.MuiTypography-body1').filter({ hasText: groupListSource }).first();
-    if (await originalGroup.isVisible().catch(() => false)) {
+    // ② そのままキーボードでグループ名を入力（オートフォーカスを活かす）
+    console.log(`  - グループ名「${groupListSource}」を入力して検索します。`);
+    await page.keyboard.type(groupListSource, { delay: 50 });
+    await page.waitForTimeout(3000);
+
+    // ③ 検索結果に出てきたグループ（div要素）をクリック
+    console.log(`  - 検索結果から「${groupListSource}」をクリックします。`);
+    const originalGroup = page.locator('div').filter({ hasText: groupListSource }).last();
+    if (await originalGroup.isVisible({ timeout: 5000 }).catch(() => false)) {
         await originalGroup.click();
         await page.waitForTimeout(2000);
     }
     
+    // ④ そのグループ内のフォルダをクリック
     console.log(`  => フォルダ「${sourceFolder}」をクリックします。`);
     try {
         await page.locator('div, li').filter({ hasText: sourceFolder }).filter({ has: page.locator('button') }).last().click();

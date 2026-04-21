@@ -233,7 +233,7 @@ const axios = require('axios');
     await page.waitForTimeout(3000);
 
     // =========================================================
-    // ★大改修: [Step 6] 複製設定の入力（検索結果の2段目を確実クリック）
+    // ★大改修: [Step 6] 複製設定の入力（フォルダ内直接検索対応）
     // =========================================================
     console.log(`\n[Step 6] 新規複製ウィザードを進めます。`);
 
@@ -245,43 +245,32 @@ const axios = require('axios');
     await page.getByText('現在のチーム内', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
-    // ① 新UIの「フォルダ検索..」をクリック
-    console.log(`  - 「フォルダ検索..」にグループ「${groupListDest}」を入力します。`);
-    const modalFolderSearch = activeModal.getByPlaceholder('フォルダ検索..').first();
+    // ① 新UIの検索窓をクリック
+    console.log(`  - 検索窓にグループ「${groupListDest}」を入力します。`);
+    const modalFolderSearch = activeModal.locator('input[type="text"]').first();
     await modalFolderSearch.click();
     await modalFolderSearch.fill('');
     // ② J列の文字列（グループリスト名）を入力
     await modalFolderSearch.pressSequentially(groupListDest, { delay: 50 });
     await page.waitForTimeout(2000);
 
-    // ③ 検索結果の「2段目（インデックス1）」を確実にクリックする
-    console.log(`  - 検索結果からグループ「${groupListDest}」をクリックします。`);
+    // ③ 検索結果の「2段目」をクリックしてグループを展開する
+    console.log(`  - 検索結果からグループ「${groupListDest}」をクリックして展開します。`);
     const groupOptions = activeModal.getByText(groupListDest);
     const groupCount = await groupOptions.count();
     if (groupCount > 1) {
-        // 検索キーワードの表示（1段目）を無視して、実際のグループ要素（2段目）をクリック
         await groupOptions.nth(1).click();
     } else {
         await groupOptions.last().click();
     }
-    await page.waitForTimeout(2000); // グループを開くアニメーションを待つ
+    await page.waitForTimeout(2000); // フォルダリストが展開されるのを待つ
 
-    // ④ 続けて、作成したフォルダ名（K列）を検索してクリック
-    console.log(`  - 続けて、フォルダ「${destFolder}」を検索します。`);
-    await modalFolderSearch.click();
-    await modalFolderSearch.fill('');
-    await modalFolderSearch.pressSequentially(destFolder, { delay: 50 });
-    await page.waitForTimeout(2000);
-
-    console.log(`  - 検索結果からフォルダ「${destFolder}」をクリックします。`);
-    const folderOptions = activeModal.getByText(destFolder);
-    const folderCount = await folderOptions.count();
-    if (folderCount > 1) {
-        // ここも同様に2段目の実際のフォルダをクリック
-        await folderOptions.nth(1).click();
-    } else {
-        await folderOptions.last().click();
-    }
+    // ④ Fn+F の代替処理（検索窓はいじらず、画面内からフォルダ名を直接見つけてクリック）
+    console.log(`  - 展開されたリストからフォルダ「${destFolder}」を探してクリックします。`);
+    const folderTarget = activeModal.getByText(destFolder).last();
+    // 隠れている場合は自動でスクロールして見つけ出す
+    await folderTarget.scrollIntoViewIfNeeded().catch(() => {});
+    await folderTarget.click();
     await page.waitForTimeout(1000);
 
     // 以降の「次へ」等

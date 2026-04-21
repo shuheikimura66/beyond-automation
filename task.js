@@ -233,7 +233,7 @@ const axios = require('axios');
     await page.waitForTimeout(3000);
 
     // =========================================================
-    // ★大改修: [Step 6] 複製設定の入力（新ウィザード・フォルダ検索対応）
+    // ★大改修: [Step 6] 複製設定の入力（検索結果の2段目を確実クリック）
     // =========================================================
     console.log(`\n[Step 6] 新規複製ウィザードを進めます。`);
 
@@ -254,10 +254,17 @@ const axios = require('axios');
     await modalFolderSearch.pressSequentially(groupListDest, { delay: 50 });
     await page.waitForTimeout(2000);
 
-    // ③ 検索結果に出てきたJ列の文字列をクリック（2段目以降のリストアイテムとして表示される想定）
+    // ③ 検索結果の「2段目（インデックス1）」を確実にクリックする
     console.log(`  - 検索結果からグループ「${groupListDest}」をクリックします。`);
-    await activeModal.getByText(groupListDest).last().click();
-    await page.waitForTimeout(1000);
+    const groupOptions = activeModal.getByText(groupListDest);
+    const groupCount = await groupOptions.count();
+    if (groupCount > 1) {
+        // 検索キーワードの表示（1段目）を無視して、実際のグループ要素（2段目）をクリック
+        await groupOptions.nth(1).click();
+    } else {
+        await groupOptions.last().click();
+    }
+    await page.waitForTimeout(2000); // グループを開くアニメーションを待つ
 
     // ④ 続けて、作成したフォルダ名（K列）を検索してクリック
     console.log(`  - 続けて、フォルダ「${destFolder}」を検索します。`);
@@ -267,10 +274,17 @@ const axios = require('axios');
     await page.waitForTimeout(2000);
 
     console.log(`  - 検索結果からフォルダ「${destFolder}」をクリックします。`);
-    await activeModal.getByText(destFolder).last().click();
+    const folderOptions = activeModal.getByText(destFolder);
+    const folderCount = await folderOptions.count();
+    if (folderCount > 1) {
+        // ここも同様に2段目の実際のフォルダをクリック
+        await folderOptions.nth(1).click();
+    } else {
+        await folderOptions.last().click();
+    }
     await page.waitForTimeout(1000);
 
-    // 以降の「次へ」等もダイアログ内の要素に限定
+    // 以降の「次へ」等
     await activeModal.getByText('次へ', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 

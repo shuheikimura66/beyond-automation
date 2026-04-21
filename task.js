@@ -233,36 +233,42 @@ const axios = require('axios');
     await page.waitForTimeout(3000);
 
     // =========================================================
-    // ★大改修: [Step 6] 複製設定の入力（新ウィザード・ポップアップ完全対応）
+    // ★大改修: [Step 6] 複製設定の入力（新ウィザード・フォルダ検索対応）
     // =========================================================
     console.log(`\n[Step 6] 新規複製ウィザードを進めます。`);
 
-    // 背景要素の誤爆を防ぐため、今開いているダイアログ（ポップアップ）の中だけに範囲を絞る
     const activeModal = page.locator('div[role="dialog"]').last();
 
     console.log(`  - チームを「現在のチーム内」に設定します。`);
-    // ① ダイアログ内の「選択してください」をクリック
     await activeModal.locator('button[role="combobox"]').filter({ hasText: '選択してください' }).first().click();
     await page.waitForTimeout(500);
-    // ②「現在のチーム内」を選択
     await page.getByText('現在のチーム内', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
-    console.log(`  - グループ「${groupListDest}」を検索して選択します。`);
-    // チーム選択後に出現する2番目のコンボボックス
-    await activeModal.locator('button[role="combobox"]').nth(1).click();
-    await page.keyboard.type(groupListDest, { delay: 50 });
-    await page.waitForTimeout(1000);
-    await page.getByText(groupListDest, { exact: true }).last().click();
-    await page.waitForTimeout(500);
+    // ① 新UIの「フォルダ検索..」をクリック
+    console.log(`  - 「フォルダ検索..」にグループ「${groupListDest}」を入力します。`);
+    const modalFolderSearch = activeModal.getByPlaceholder('フォルダ検索..').first();
+    await modalFolderSearch.click();
+    await modalFolderSearch.fill('');
+    // ② J列の文字列（グループリスト名）を入力
+    await modalFolderSearch.pressSequentially(groupListDest, { delay: 50 });
+    await page.waitForTimeout(2000);
 
-    console.log(`  - 移動先フォルダ「${destFolder}」を検索して選択します。`);
-    // 出現する3番目のコンボボックス
-    await activeModal.locator('button[role="combobox"]').nth(2).click();
-    await page.keyboard.type(destFolder, { delay: 50 });
+    // ③ 検索結果に出てきたJ列の文字列をクリック（2段目以降のリストアイテムとして表示される想定）
+    console.log(`  - 検索結果からグループ「${groupListDest}」をクリックします。`);
+    await activeModal.getByText(groupListDest).last().click();
     await page.waitForTimeout(1000);
-    await page.getByText(destFolder, { exact: true }).last().click();
-    await page.waitForTimeout(500);
+
+    // ④ 続けて、作成したフォルダ名（K列）を検索してクリック
+    console.log(`  - 続けて、フォルダ「${destFolder}」を検索します。`);
+    await modalFolderSearch.click();
+    await modalFolderSearch.fill('');
+    await modalFolderSearch.pressSequentially(destFolder, { delay: 50 });
+    await page.waitForTimeout(2000);
+
+    console.log(`  - 検索結果からフォルダ「${destFolder}」をクリックします。`);
+    await activeModal.getByText(destFolder).last().click();
+    await page.waitForTimeout(1000);
 
     // 以降の「次へ」等もダイアログ内の要素に限定
     await activeModal.getByText('次へ', { exact: true }).last().click();

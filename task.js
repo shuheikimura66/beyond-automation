@@ -70,6 +70,25 @@ const axios = require('axios');
     }
 
     // =========================================================
+    // ★復活: [Step 1.5] 新UI対応（ページメニューのクリック）
+    // =========================================================
+    console.log(`\n[Step 1.5] 「ページ」メニューをクリックして一覧へ移動します。`);
+    const pageMenuIcon = page.locator('svg').filter({ has: page.locator('path[d^="M11 8.5V6.75C11 5.50736"]') }).first();
+    
+    try {
+        const menuWrapper = pageMenuIcon.locator('xpath=ancestor::button | ancestor::a | ancestor::div[@role="button" | @role="menuitem"]').first();
+        if (await menuWrapper.isVisible({ timeout: 3000 }).catch(() => false)) {
+            await menuWrapper.click();
+        } else {
+            await pageMenuIcon.click();
+        }
+    } catch(e) {
+        await pageMenuIcon.click();
+    }
+    console.log(`  => ページ一覧画面のロードを待機しています...`);
+    await page.waitForTimeout(5000);
+
+    // =========================================================
     // [Step 2] 新UIでのフォルダ作成フロー（ウィザード形式）
     // =========================================================
     console.log(`\n[Step 2] コピー先のフォルダを新規作成します（新UIフロー）。`);
@@ -87,7 +106,7 @@ const axios = require('axios');
     await page.getByText('登録済みドメインから選択').click();
     await page.waitForTimeout(500);
 
-    // ④ 「独自ドメイン」をクリック（誤爆を防ぐため、下の説明文を使って正確にクリック）
+    // ④ 「独自ドメイン」をクリック
     await page.getByText('フルアウトが登録したドメインから選択').click();
     await page.waitForTimeout(500);
 
@@ -129,7 +148,6 @@ const axios = require('axios');
     console.log(`  - フォルダ名を入力します: ${destFolder}`);
     await page.getByText('新しいフォルダ', { exact: false }).click();
     await page.waitForTimeout(500);
-    // Linux(GitHub)/Mac/Win 全対応の全選択＆削除
     await page.keyboard.press('Control+A');
     await page.keyboard.press('Meta+A'); 
     await page.keyboard.press('Backspace');
@@ -152,7 +170,7 @@ const axios = require('axios');
     // [Step 3] コピー元フォルダの検索
     // =========================================================
     console.log(`\n[Step 3] 記事をコピーするため、原本グループ「${groupListSource}」を検索します。`);
-    await page.keyboard.press('Escape'); // 念のため余計なメニューを消す
+    await page.keyboard.press('Escape'); 
     await page.waitForTimeout(500);
 
     const globalSearch = page.locator('input[type="search"]').first();
@@ -205,7 +223,7 @@ const axios = require('axios');
     await page.waitForTimeout(3000);
 
     // =========================================================
-    // [Step 6] 複製設定の入力（ここのフローは以前と同じ）
+    // [Step 6] 複製設定の入力
     // =========================================================
     console.log(`\n[Step 6] 複製設定を入力します。`);
 

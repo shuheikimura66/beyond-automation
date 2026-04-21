@@ -70,7 +70,7 @@ const axios = require('axios');
     }
 
     // =========================================================
-    // ★復活: [Step 1.5] 新UI対応（ページメニューのクリック）
+    // [Step 1.5] 新UI対応（ページメニューのクリック）
     // =========================================================
     console.log(`\n[Step 1.5] 「ページ」メニューをクリックして一覧へ移動します。`);
     const pageMenuIcon = page.locator('svg').filter({ has: page.locator('path[d^="M11 8.5V6.75C11 5.50736"]') }).first();
@@ -112,11 +112,16 @@ const axios = require('axios');
 
     // ⑤ 「独自ドメインを選択する」ドロップダウンをクリック
     await page.getByRole('combobox').filter({ hasText: '独自ドメインを選択する' }).click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1000);
 
-    // ⑥ スプシのドメインを選択
-    console.log(`  - ドメイン「${domain}」を選択します。`);
-    await page.getByRole('option', { name: domain, exact: true }).click();
+    // ⑥ スプシのドメインを「検索」して選択
+    console.log(`  - ドメイン「${domain}」を検索して選択します。`);
+    // 自動でカーソルが当たっているのでそのまま入力
+    await page.keyboard.type(domain, { delay: 50 });
+    await page.waitForTimeout(1000); // 絞り込み結果が出るのを待つ
+    
+    // 表示された同名のドメインをクリック（role="option"でない可能性も考慮し完全一致テキストのlastを指定）
+    await page.getByText(domain, { exact: true }).last().click();
     await page.waitForTimeout(500);
 
     // ⑦ 「次へ」をクリック

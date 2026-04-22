@@ -233,36 +233,73 @@ const axios = require('axios');
         }
     }
 
-    const nextBtn = activeModal.getByText('保存して次へ', { exact: true }).last();
-    if (await nextBtn.isVisible().catch(() => false)) {
-        await nextBtn.click();
-        await page.waitForTimeout(1000);
-        await activeModal.getByText('次へ', { exact: true }).last().click().catch(()=>{});
-        await page.waitForTimeout(1000);
-        await activeModal.getByText('次へ', { exact: true }).last().click().catch(()=>{});
-        await page.waitForTimeout(1000);
-        await activeModal.getByText('次へ', { exact: true }).last().click().catch(()=>{});
-        await page.waitForTimeout(1000);
-        await activeModal.getByText('置換せずスキップ', { exact: true }).last().click().catch(()=>{});
-        await page.waitForTimeout(1000);
-        await activeModal.getByText('設定確認', { exact: true }).last().click().catch(()=>{});
-        await page.waitForTimeout(1000);
+    // =========================================================
+    // ★大改修: ご提示いただいた①〜⑦の手順を、出現を待って確実にクリック
+    // =========================================================
+    console.log(`  - ウィザードの各ステップを確実に進めます。`);
 
-        const finalCopyBtn = activeModal.getByText('この内容でページを複製する', { exact: true }).last();
-        await finalCopyBtn.click();
-    } else {
-        const copySubmitBtn = activeModal.getByRole('button', { name: '複製する' });
-        await copySubmitBtn.click();
+    // ① 保存して次へ
+    const step1Btn = activeModal.getByText('保存して次へ', { exact: true }).last();
+    if (await step1Btn.isVisible().catch(() => false)) {
+        await step1Btn.click();
+        await page.waitForTimeout(1000);
     }
-    
+
+    // ② 次へ
+    const step2Btn = activeModal.getByText('次へ', { exact: true }).last();
+    if (await step2Btn.isVisible().catch(() => false)) {
+        await step2Btn.click();
+        await page.waitForTimeout(1000);
+    }
+
+    // ③ 次へ
+    const step3Btn = activeModal.getByText('次へ', { exact: true }).last();
+    if (await step3Btn.isVisible().catch(() => false)) {
+        await step3Btn.click();
+        await page.waitForTimeout(1000);
+    }
+
+    // ④ 次へ
+    const step4Btn = activeModal.getByText('次へ', { exact: true }).last();
+    if (await step4Btn.isVisible().catch(() => false)) {
+        await step4Btn.click();
+        await page.waitForTimeout(1000);
+    }
+
+    // ⑤ 保存して次へ（ウィザードのパターンによっては「置換せずスキップ」等の場合もあるため両方対応）
+    const step5Btn1 = activeModal.getByText('保存して次へ', { exact: true }).last();
+    const step5Btn2 = activeModal.getByText('置換せずスキップ', { exact: true }).last();
+    if (await step5Btn1.isVisible().catch(() => false)) {
+        await step5Btn1.click();
+    } else if (await step5Btn2.isVisible().catch(() => false)) {
+        await step5Btn2.click();
+    }
+    await page.waitForTimeout(1000);
+
+    // ⑥ 設定確認
+    const step6Btn = activeModal.getByText('設定確認', { exact: true }).last();
+    if (await step6Btn.isVisible().catch(() => false)) {
+        await step6Btn.click();
+        await page.waitForTimeout(1000);
+    }
+
+    // ⑦ この内容でページを複製する
+    const step7Btn = activeModal.getByText('この内容でページを複製する', { exact: true }).last();
+    if (await step7Btn.isVisible().catch(() => false)) {
+        await step7Btn.click();
+    } else {
+        // 万が一ボタンが見つからなかった場合の保険（旧仕様）
+        await activeModal.getByRole('button', { name: '複製する' }).click().catch(()=>{});
+    }
+
     console.log(`  => ⏳ 複製処理の完了を待機しています...`);
     
     // =========================================================
-    // ★大改修: [Step 6] 複製完了ポップアップの処理とフォルダ遷移
+    // [Step 6] 複製完了ポップアップの処理とフォルダ遷移
     // =========================================================
     console.log(`\n[Step 6] 複製完了ポップアップを確認し、作業フォルダへ移動します。`);
     
-    // 「複製が完了しました！」ポップアップが出るまで待機
+    // 「複製が完了しました！」テキストが出るまで待機
     await page.getByText('複製が完了しました！').first().waitFor({ state: 'visible', timeout: 30000 }).catch(() => {});
     await page.waitForTimeout(2000);
 
@@ -278,7 +315,7 @@ const axios = require('axios');
     await page.waitForTimeout(5000);
 
     // =========================================================
-    // [Step 7] 複製された記事の検索とURLコピー（新UIサイドバー対応）
+    // [Step 7] 複製された記事の検索とURLコピー
     // =========================================================
     console.log(`\n[Step 7] 複製されたページ「${newArticleName}」を検索してURLをコピーします。`);
     
@@ -295,6 +332,7 @@ const axios = require('axios');
     }
     await page.waitForTimeout(4000);
 
+    // 検索結果から該当する行を特定
     const newArticleRow = page.locator('div, li, tr').filter({ hasText: newArticleName }).last();
     await newArticleRow.waitFor({ state: 'visible', timeout: 10000 });
 
@@ -304,7 +342,6 @@ const axios = require('axios');
 
     console.log(`  - サイドバー内のコピーアイコンをクリックします。`);
     try {
-        // 配信URLの横にあるSVG（コピーボタン）を正確に狙い撃ち
         const copyBtnContainer = page.locator('*:has-text("配信URL")').locator('..').last();
         await copyBtnContainer.locator('svg').first().click();
     } catch(e) {

@@ -212,16 +212,8 @@ const axios = require('axios');
         await page.waitForTimeout(1000);
     }
 
+    // --- ここから先は「配信URL」と「ページ名」の入力画面（共通） ---
     console.log(`\n[Step 5.5] 複製ウィザードに新規情報を入力します。`);
-    
-    console.log(`  - beyondページ名を「${newArticleName}」に変更します。`);
-    const pageNameInput = activeModal.locator('input[type="text"]').first();
-    await pageNameInput.click();
-    await page.keyboard.press('Control+A');
-    await page.keyboard.press('Meta+A'); 
-    await page.keyboard.press('Backspace');
-    await pageNameInput.pressSequentially(newArticleName, { delay: 50 });
-    await page.waitForTimeout(1000);
     
     if (deliveryUrl) {
         console.log(`  - 配信URL設定を入力します: ${deliveryUrl}`);
@@ -230,12 +222,35 @@ const axios = require('axios');
             await deliveryInput.fill('');
             await deliveryInput.pressSequentially(deliveryUrl, { delay: 50 });
             await page.waitForTimeout(1000);
-            await page.keyboard.press('Enter'); // 確実に入力を反映
+            await page.keyboard.press('Enter'); 
         }
     }
 
+    // ★改修: ページ名タブに切り替えてから名前を変更する
+    console.log(`  - 「ページ名」タブをクリックします。`);
+    try {
+        const pageNameTab = activeModal.locator('button').filter({ hasText: 'ページ名' }).first();
+        await pageNameTab.click();
+        await page.waitForTimeout(1000);
+    } catch(e) {
+        console.log(`    ⚠️ ページ名タブが見つからないため、そのまま進みます。`);
+    }
+
+    console.log(`  - beyondページ名を「${newArticleName}」に変更します。`);
+    try {
+        const pageNameInput = activeModal.locator('input[type="text"]').filter({ state: 'visible' }).first();
+        await pageNameInput.click();
+        await page.keyboard.press('Control+A');
+        await page.keyboard.press('Meta+A'); 
+        await page.keyboard.press('Backspace');
+        await pageNameInput.pressSequentially(newArticleName, { delay: 50 });
+        await page.waitForTimeout(1000);
+    } catch(e) {
+        console.log(`    ⚠️ ページ名の入力欄が見つかりませんでした。`);
+    }
+
     // =========================================================
-    // ★大改修: ウィザードを1つずつ「出現を待ってから」確実にクリックする関数
+    // ウィザードを1つずつ「出現を待ってから」確実にクリックする関数
     // =========================================================
     const clickWizardButton = async (buttonNames, stepLog) => {
         console.log(`  - ${stepLog} を探してクリックします。`);
@@ -244,25 +259,22 @@ const axios = require('axios');
                 const btn = activeModal.getByText(name, { exact: true }).last();
                 if (await btn.isVisible()) {
                     await btn.click();
-                    await page.waitForTimeout(1000); // 画面切り替えのクールダウン
-                    return; // 成功
+                    await page.waitForTimeout(1000); 
+                    return; 
                 }
             }
-            await page.waitForTimeout(500); // まだ無ければ0.5秒待って再試行
+            await page.waitForTimeout(500); 
         }
         console.log(`    ⚠️ 警告: [${buttonNames.join(', ')}] が見つかりませんでしたが次へ進みます。`);
     };
 
-    // ユーザー指定の①〜⑥の手順を確実に実行
     await clickWizardButton(['保存して次へ'], '① 保存して次へ');
     await clickWizardButton(['次へ'], '② 次へ');
     await clickWizardButton(['次へ'], '③ 次へ');
     await clickWizardButton(['次へ'], '④ 次へ');
-    // ウィザードのパターンによって「保存して次へ」と「置換せずスキップ」が変わるため両対応
     await clickWizardButton(['保存して次へ', '置換せずスキップ'], '⑤ 保存して次へ / 置換せずスキップ');
     await clickWizardButton(['設定確認'], '⑥ 設定確認');
 
-    // ⑦ この内容でページを複製する
     console.log(`  - ⑦ 「この内容でページを複製する」をクリックします。`);
     const finalCopyBtn = activeModal.getByText('この内容でページを複製する', { exact: true }).last();
     await finalCopyBtn.waitFor({ state: 'visible', timeout: 10000 });

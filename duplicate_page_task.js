@@ -85,7 +85,6 @@ const axios = require('axios');
         await pageMenuIcon.click();
     }
 
-    // ★大改修: マウスカーソルがメニュー上に残ってサイドバーが被るのを防ぐため、画面右上にカーソルを退避させる
     console.log(`  - サブメニューが被るのを防ぐため、マウスカーソルを安全地帯へ退避させます。`);
     await page.mouse.move(1000, 10);
     await page.waitForTimeout(1000);
@@ -146,7 +145,7 @@ const axios = require('axios');
     console.log(`\n[Step 4] 対象記事のメニューを開きます。`);
     const targetArticleEl = page.getByText(sourceArticle).filter({ state: 'visible' }).first();
     await targetArticleEl.scrollIntoViewIfNeeded().catch(() => {});
-    await targetArticleEl.hover(); // ホバーして隠しボタンを出現させる
+    await targetArticleEl.hover(); 
     await page.waitForTimeout(1000);
 
     console.log(`  - メニュー（...）ボタンをクリックします。`);
@@ -179,7 +178,6 @@ const axios = require('axios');
 
     const activeModal = page.locator('div[role="dialog"]').last();
 
-    // 別フォルダ移動時のみ、チーム・グループ・フォルダを選択する
     if (!isSameFolder) {
         console.log(`  - チームを「現在のチーム内」に設定します。`);
         await activeModal.locator('button[role="combobox"]').filter({ hasText: '選択してください' }).first().click();
@@ -198,7 +196,7 @@ const axios = require('axios');
         const groupOptions = activeModal.getByText(groupListDest);
         const groupCount = await groupOptions.count();
         if (groupCount > 1) {
-            await groupOptions.nth(1).click(); // 2段目をクリック
+            await groupOptions.nth(1).click(); 
         } else {
             await groupOptions.last().click();
         }
@@ -214,11 +212,9 @@ const axios = require('axios');
         await page.waitForTimeout(1000);
     }
 
-    // --- ここから先は「ページ名」と「配信URL」の入力画面（共通） ---
     console.log(`\n[Step 5.5] 複製ウィザードに新規情報を入力します。`);
     
     console.log(`  - beyondページ名を「${newArticleName}」に変更します。`);
-    // 新UIのページ名入力欄（通常、一番最初のテキストボックス）
     const pageNameInput = activeModal.locator('input[type="text"]').first();
     await pageNameInput.click();
     await page.keyboard.press('Control+A');
@@ -237,7 +233,6 @@ const axios = require('axios');
         }
     }
 
-    // 「保存して次へ」がある場合はウィザード形式、無い場合は「複製する」などの単発ポップアップ
     const nextBtn = activeModal.getByText('保存して次へ', { exact: true }).last();
     if (await nextBtn.isVisible().catch(() => false)) {
         await nextBtn.click();
@@ -256,45 +251,31 @@ const axios = require('axios');
         const finalCopyBtn = activeModal.getByText('この内容でページを複製する', { exact: true }).last();
         await finalCopyBtn.click();
     } else {
-        // ウィザード形式ではない場合（旧式or簡易版が残っていた時の保険）
         const copySubmitBtn = activeModal.getByRole('button', { name: '複製する' });
         await copySubmitBtn.click();
     }
     
     console.log(`  => ⏳ 複製処理の完了を待機しています...`);
-    await activeModal.waitFor({ state: 'hidden', timeout: 30000 }).catch(() => {});
-    console.log(`  => ✅ 複製完了！`);
-    await page.waitForTimeout(5000);
-
+    
     // =========================================================
-    // [Step 6] 別フォルダへ複製した場合は、そのフォルダへ移動
+    // ★大改修: [Step 6] 複製完了ポップアップの処理とフォルダ遷移
     // =========================================================
-    if (!isSameFolder) {
-        console.log(`\n[Step 6] 別フォルダへ移動します: ${destFolder}`);
-        await page.keyboard.press('Escape'); 
-        await page.waitForTimeout(500);
+    console.log(`\n[Step 6] 複製完了ポップアップを確認し、作業フォルダへ移動します。`);
+    
+    // 「複製が完了しました！」ポップアップが出るまで待機
+    await page.getByText('複製が完了しました！').first().waitFor({ state: 'visible', timeout: 30000 }).catch(() => {});
+    await page.waitForTimeout(2000);
 
-        await page.getByText('検索', { exact: true }).first().click();
-        await page.waitForTimeout(1000);
-
-        await page.keyboard.type(groupListDest, { delay: 50 });
-        await page.waitForTimeout(3000);
-
-        const destParentGroup = page.locator('div').filter({ hasText: groupListDest }).last();
-        if (await destParentGroup.isVisible({ timeout: 5000 }).catch(() => false)) {
-            await destParentGroup.click();
-            await page.waitForTimeout(2000);
-        }
-        
-        try {
-            await page.locator('div, li').filter({ hasText: destFolder }).filter({ has: page.locator('button') }).last().click();
-        } catch (e) {
-            const partialDest = destFolder.split('（')[0].split('(')[0].trim();
-            await page.locator('div, li').filter({ hasText: partialDest }).filter({ has: page.locator('button') }).last().click();
-        }
-        console.log(`  => フォルダの中身のロードを待機しています...`);
-        await page.waitForTimeout(5000);
+    if (isSameFolder) {
+        console.log(`  => 同じフォルダ内なので「このフォルダで作業を続ける」をクリックします。`);
+        await page.getByText('このフォルダで作業を続ける', { exact: true }).last().click();
+    } else {
+        console.log(`  => 別フォルダなので「複製先フォルダで作業を始める」をクリックします。`);
+        await page.getByText('複製先フォルダで作業を始める', { exact: true }).last().click();
     }
+    
+    console.log(`  => フォルダのロードを待機しています...`);
+    await page.waitForTimeout(5000);
 
     // =========================================================
     // [Step 7] 複製された記事の検索とURLコピー（新UIサイドバー対応）
@@ -317,18 +298,16 @@ const axios = require('axios');
     const newArticleRow = page.locator('div, li, tr').filter({ hasText: newArticleName }).last();
     await newArticleRow.waitFor({ state: 'visible', timeout: 10000 });
 
-    // 新UIでは、記事の行を直接クリックすると右側に「URL情報」のサイドバーが開く
     console.log(`  - 記事の行をクリックして右サイドバーを開きます。`);
     await newArticleRow.click();
     await page.waitForTimeout(2000);
 
     console.log(`  - サイドバー内のコピーアイコンをクリックします。`);
     try {
-        // 「配信URL」というテキストの近くにあるSVG（コピーボタン）をクリック
+        // 配信URLの横にあるSVG（コピーボタン）を正確に狙い撃ち
         const copyBtnContainer = page.locator('*:has-text("配信URL")').locator('..').last();
         await copyBtnContainer.locator('svg').first().click();
     } catch(e) {
-        // 取れなかった場合のフォールバック
         await page.locator('[data-testid="FileCopyIcon"]').first().click();
     }
     await page.waitForTimeout(1000);

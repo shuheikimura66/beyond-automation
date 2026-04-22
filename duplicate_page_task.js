@@ -84,6 +84,12 @@ const axios = require('axios');
     } catch(e) {
         await pageMenuIcon.click();
     }
+
+    // ★大改修: マウスカーソルがメニュー上に残ってサイドバーが被るのを防ぐため、画面右上にカーソルを退避させる
+    console.log(`  - サブメニューが被るのを防ぐため、マウスカーソルを安全地帯へ退避させます。`);
+    await page.mouse.move(1000, 10);
+    await page.waitForTimeout(1000);
+
     console.log(`  => ページ一覧画面のロードを待機しています...`);
     await page.waitForTimeout(5000);
 

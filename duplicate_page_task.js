@@ -230,77 +230,54 @@ const axios = require('axios');
             await deliveryInput.fill('');
             await deliveryInput.pressSequentially(deliveryUrl, { delay: 50 });
             await page.waitForTimeout(1000);
+            await page.keyboard.press('Enter'); // 確実に入力を反映
         }
     }
 
     // =========================================================
-    // ★大改修: ご提示いただいた①〜⑦の手順を、出現を待って確実にクリック
+    // ★大改修: ウィザードを1つずつ「出現を待ってから」確実にクリックする関数
     // =========================================================
-    console.log(`  - ウィザードの各ステップを確実に進めます。`);
+    const clickWizardButton = async (buttonNames, stepLog) => {
+        console.log(`  - ${stepLog} を探してクリックします。`);
+        for (let i = 0; i < 20; i++) { // 最大10秒待機
+            for (const name of buttonNames) {
+                const btn = activeModal.getByText(name, { exact: true }).last();
+                if (await btn.isVisible()) {
+                    await btn.click();
+                    await page.waitForTimeout(1000); // 画面切り替えのクールダウン
+                    return; // 成功
+                }
+            }
+            await page.waitForTimeout(500); // まだ無ければ0.5秒待って再試行
+        }
+        console.log(`    ⚠️ 警告: [${buttonNames.join(', ')}] が見つかりませんでしたが次へ進みます。`);
+    };
 
-    // ① 保存して次へ
-    const step1Btn = activeModal.getByText('保存して次へ', { exact: true }).last();
-    if (await step1Btn.isVisible().catch(() => false)) {
-        await step1Btn.click();
-        await page.waitForTimeout(1000);
-    }
-
-    // ② 次へ
-    const step2Btn = activeModal.getByText('次へ', { exact: true }).last();
-    if (await step2Btn.isVisible().catch(() => false)) {
-        await step2Btn.click();
-        await page.waitForTimeout(1000);
-    }
-
-    // ③ 次へ
-    const step3Btn = activeModal.getByText('次へ', { exact: true }).last();
-    if (await step3Btn.isVisible().catch(() => false)) {
-        await step3Btn.click();
-        await page.waitForTimeout(1000);
-    }
-
-    // ④ 次へ
-    const step4Btn = activeModal.getByText('次へ', { exact: true }).last();
-    if (await step4Btn.isVisible().catch(() => false)) {
-        await step4Btn.click();
-        await page.waitForTimeout(1000);
-    }
-
-    // ⑤ 保存して次へ（ウィザードのパターンによっては「置換せずスキップ」等の場合もあるため両方対応）
-    const step5Btn1 = activeModal.getByText('保存して次へ', { exact: true }).last();
-    const step5Btn2 = activeModal.getByText('置換せずスキップ', { exact: true }).last();
-    if (await step5Btn1.isVisible().catch(() => false)) {
-        await step5Btn1.click();
-    } else if (await step5Btn2.isVisible().catch(() => false)) {
-        await step5Btn2.click();
-    }
-    await page.waitForTimeout(1000);
-
-    // ⑥ 設定確認
-    const step6Btn = activeModal.getByText('設定確認', { exact: true }).last();
-    if (await step6Btn.isVisible().catch(() => false)) {
-        await step6Btn.click();
-        await page.waitForTimeout(1000);
-    }
+    // ユーザー指定の①〜⑥の手順を確実に実行
+    await clickWizardButton(['保存して次へ'], '① 保存して次へ');
+    await clickWizardButton(['次へ'], '② 次へ');
+    await clickWizardButton(['次へ'], '③ 次へ');
+    await clickWizardButton(['次へ'], '④ 次へ');
+    // ウィザードのパターンによって「保存して次へ」と「置換せずスキップ」が変わるため両対応
+    await clickWizardButton(['保存して次へ', '置換せずスキップ'], '⑤ 保存して次へ / 置換せずスキップ');
+    await clickWizardButton(['設定確認'], '⑥ 設定確認');
 
     // ⑦ この内容でページを複製する
-    const step7Btn = activeModal.getByText('この内容でページを複製する', { exact: true }).last();
-    if (await step7Btn.isVisible().catch(() => false)) {
-        await step7Btn.click();
-    } else {
-        // 万が一ボタンが見つからなかった場合の保険（旧仕様）
-        await activeModal.getByRole('button', { name: '複製する' }).click().catch(()=>{});
-    }
-
+    console.log(`  - ⑦ 「この内容でページを複製する」をクリックします。`);
+    const finalCopyBtn = activeModal.getByText('この内容でページを複製する', { exact: true }).last();
+    await finalCopyBtn.waitFor({ state: 'visible', timeout: 10000 });
+    await finalCopyBtn.click();
+    
     console.log(`  => ⏳ 複製処理の完了を待機しています...`);
     
     // =========================================================
     // [Step 6] 複製完了ポップアップの処理とフォルダ遷移
     // =========================================================
-    console.log(`\n[Step 6] 複製完了ポップアップを確認し、作業フォルダへ移動します。`);
-    
-    // 「複製が完了しました！」テキストが出るまで待機
-    await page.getByText('複製が完了しました！').first().waitFor({ state: 'visible', timeout: 30000 }).catch(() => {});
+    try {
+        await page.getByText('複製が完了しました！').first().waitFor({ state: 'visible', timeout: 45000 });
+    } catch (e) {
+        throw new Error('❌ 複製完了ポップアップが表示されませんでした。ウィザードが途中で止まった可能性があります。');
+    }
     await page.waitForTimeout(2000);
 
     if (isSameFolder) {
@@ -332,7 +309,6 @@ const axios = require('axios');
     }
     await page.waitForTimeout(4000);
 
-    // 検索結果から該当する行を特定
     const newArticleRow = page.locator('div, li, tr').filter({ hasText: newArticleName }).last();
     await newArticleRow.waitFor({ state: 'visible', timeout: 10000 });
 

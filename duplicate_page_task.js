@@ -39,7 +39,7 @@ const axios = require('axios');
     await page.waitForTimeout(3000);
 
     const emailInput = page.locator('input[name="email"]');
-    if (await emailInput.isVisible()) {
+    if (await emailInput.isVisible().catch(() => false)) {
       console.log(`  => 🔑 ID/PASS入力画面を検知。情報を入力します。`);
       await emailInput.fill(process.env.SQUADBEYOND_ID);
       await page.waitForTimeout(1000);
@@ -50,9 +50,18 @@ const axios = require('axios');
       await page.waitForTimeout(3000);
     }
 
-    const secondLoginButton = page.getByRole('button', { name: 'ログイン', exact: true });
-    if (await secondLoginButton.isVisible()) {
-      await secondLoginButton.first().click();
+    // ★改修：複数チーム対応（「フルアウト」の行にあるログインボタンを狙い撃つ）
+    const loginBtns = page.getByRole('button', { name: 'ログイン', exact: true });
+    if (await loginBtns.count() > 0) {
+      console.log(`  => チーム選択画面を検知。チーム「フルアウト」でログインします。`);
+      const fulloutBtn = page.locator('li, div').filter({ hasText: 'フルアウト' }).locator('button:has-text("ログイン")').first();
+      
+      if (await fulloutBtn.isVisible().catch(() => false)) {
+          await fulloutBtn.click();
+      } else {
+          // 万が一見つからない場合の保険
+          await loginBtns.first().click();
+      }
       await page.waitForTimeout(5000); 
       await page.waitForLoadState('load');
     }
@@ -212,7 +221,6 @@ const axios = require('axios');
         await page.waitForTimeout(1000);
     }
 
-    // --- ここから先は「配信URL」と「ページ名」の入力画面（共通） ---
     console.log(`\n[Step 5.5] 複製ウィザードに新規情報を入力します。`);
     
     if (deliveryUrl) {
@@ -226,7 +234,6 @@ const axios = require('axios');
         }
     }
 
-    // ★改修: ページ名タブに切り替えてから名前を変更する
     console.log(`  - 「ページ名」タブをクリックします。`);
     try {
         const pageNameTab = activeModal.locator('button').filter({ hasText: 'ページ名' }).first();
@@ -254,7 +261,7 @@ const axios = require('axios');
     // =========================================================
     const clickWizardButton = async (buttonNames, stepLog) => {
         console.log(`  - ${stepLog} を探してクリックします。`);
-        for (let i = 0; i < 20; i++) { // 最大10秒待機
+        for (let i = 0; i < 20; i++) { 
             for (const name of buttonNames) {
                 const btn = activeModal.getByText(name, { exact: true }).last();
                 if (await btn.isVisible()) {

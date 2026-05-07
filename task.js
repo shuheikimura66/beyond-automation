@@ -39,7 +39,7 @@ const axios = require('axios');
     await page.waitForTimeout(3000);
 
     const emailInput = page.locator('input[name="email"]');
-    if (await emailInput.isVisible()) {
+    if (await emailInput.isVisible().catch(() => false)) {
       console.log(`  => 🔑 ID/PASS入力画面を検知。情報を入力します。`);
       await emailInput.fill(process.env.SQUADBEYOND_ID);
       await page.waitForTimeout(1000);
@@ -50,9 +50,18 @@ const axios = require('axios');
       await page.waitForTimeout(3000);
     }
 
-    const secondLoginButton = page.getByRole('button', { name: 'ログイン', exact: true });
-    if (await secondLoginButton.isVisible()) {
-      await secondLoginButton.first().click();
+    // ★改修：複数チーム対応（「フルアウト」の行にあるログインボタンを狙い撃つ）
+    const loginBtns = page.getByRole('button', { name: 'ログイン', exact: true });
+    if (await loginBtns.count() > 0) {
+      console.log(`  => チーム選択画面を検知。チーム「フルアウト」でログインします。`);
+      const fulloutBtn = page.locator('li, div').filter({ hasText: 'フルアウト' }).locator('button:has-text("ログイン")').first();
+      
+      if (await fulloutBtn.isVisible().catch(() => false)) {
+          await fulloutBtn.click();
+      } else {
+          // 万が一見つからない場合の保険
+          await loginBtns.first().click();
+      }
       await page.waitForTimeout(5000); 
       await page.waitForLoadState('load');
     }
@@ -143,14 +152,12 @@ const axios = require('axios');
     await page.keyboard.press('Backspace');
     await page.waitForTimeout(500);
 
-    // ★改修: フォルダ名入力後、Enterキーで確定させる
     await page.keyboard.type(destFolder, { delay: 50 });
     await page.waitForTimeout(1000);
     console.log(`  - Enterキーを押して入力をシステムに認識させます。`);
     await page.keyboard.press('Enter');
     await page.waitForTimeout(1000);
 
-    // ★改修: ボタンが生きていればクリックし、ダイアログが消えるまで待つ
     const createBtn = page.getByText('作成する', { exact: true }).last();
     if (await createBtn.isVisible().catch(() => false)) {
         await createBtn.click();

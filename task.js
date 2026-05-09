@@ -50,16 +50,16 @@ const axios = require('axios');
       await page.waitForTimeout(3000);
     }
 
-    // ★改修：複数チーム対応（「フルアウト」の行にあるログインボタンを狙い撃つ）
+    // 複数チーム対応（「フルアウト」があれば優先、なければ一番上をクリック）
     const loginBtns = page.getByRole('button', { name: 'ログイン', exact: true });
     if (await loginBtns.count() > 0) {
-      console.log(`  => チーム選択画面を検知。チーム「フルアウト」でログインします。`);
+      console.log(`  => チーム選択画面を検知。ログインを試行します。`);
       const fulloutBtn = page.locator('li, div').filter({ hasText: 'フルアウト' }).locator('button:has-text("ログイン")').first();
       
       if (await fulloutBtn.isVisible().catch(() => false)) {
           await fulloutBtn.click();
       } else {
-          // 万が一見つからない場合の保険
+          // フルアウトが見つからなければ、一番上（初期選択）のチームでログイン
           await loginBtns.first().click();
       }
       await page.waitForTimeout(5000); 
@@ -112,7 +112,9 @@ const axios = require('axios');
     await page.getByText('登録済みドメインから選択').click();
     await page.waitForTimeout(500);
 
-    await page.getByText('フルアウトが登録したドメインから選択').click();
+    // ★大改修：アカウント名が何であっても対応できるように「正規表現（部分一致）」でクリック
+    console.log(`  - 「独自ドメイン」を選択します。`);
+    await page.getByText(/が登録したドメインから選択/).first().click();
     await page.waitForTimeout(500);
 
     await page.getByRole('combobox').filter({ hasText: '独自ドメインを選択する' }).click();

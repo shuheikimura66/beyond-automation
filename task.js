@@ -223,31 +223,29 @@ const axios = require('axios');
     await page.waitForTimeout(4000);
     
     // =========================================================
-    // [Step 5] 「別フォルダへ複製」を選択
+    // ★大改修: [Step 5] 「別フォルダへ複製」を選択（元のコード復活）
     // =========================================================
     console.log(`\n[Step 5] 「別フォルダへ複製」を選択します。`);
     
     console.log(`  - 記事にマウスカーソルを合わせてメニューボタンを出現させます。`);
-    const targetArticleEl = page.getByText(sourceArticle).filter({ state: 'visible' }).first();
-    await targetArticleEl.scrollIntoViewIfNeeded().catch(() => {});
-    await targetArticleEl.hover();
+    // 【重要】右サイドバーの同名記事を誤爆しないように、`.first()` でメインリスト側の行を特定
+    const targetArticleRow = page.locator('div, li, tr').filter({ hasText: sourceArticle }).first();
+    await targetArticleRow.scrollIntoViewIfNeeded().catch(() => {});
+    await targetArticleRow.hover();
     await page.waitForTimeout(1000);
 
     console.log(`  - メニュー（...）ボタンをクリックします。`);
-    try {
-        const beyondCopyBtn = page.getByText(/beyond(?:page|ページ)複製/i).filter({ state: 'visible' }).last();
-        const btnContainer = beyondCopyBtn.locator('xpath=..');
-        
-        const actionBtns = btnContainer.locator('button, [role="button"], div:has(svg)');
-        const count = await actionBtns.count();
-        
-        if (count > 1) {
-            await actionBtns.nth(count - 2).click();
+    // 以前ご提示いただいた「前の元のコード」をそのまま適用
+    const lastCell = targetArticleRow.locator('td').last();
+    if (await lastCell.isVisible().catch(() => false)) {
+        await lastCell.locator('button').first().click();
+    } else {
+        const chainIconCount = await targetArticleRow.locator('button').filter({ has: page.locator('path[d^="M67.497"]') }).count();
+        if (chainIconCount > 0) {
+            await targetArticleRow.locator('button').nth(-3).click(); 
         } else {
-            await page.locator('svg:right-of(:textMatches("(?i)beyond(?:page|ページ)複製"))').first().click();
+            await targetArticleRow.locator('button').nth(-2).click(); 
         }
-    } catch(e) {
-        await page.locator('svg:right-of(:textMatches("(?i)beyond(?:page|ページ)複製"))').first().click();
     }
     await page.waitForTimeout(1000);
 
@@ -262,10 +260,8 @@ const axios = require('axios');
     const activeModal = page.locator('div[role="dialog"]').last();
 
     console.log(`  - チームを「現在のチーム内」に設定します。`);
-    // activeModalの中のコンボボックスをクリック
-    await activeModal.locator('button[role="combobox"]').first().click();
+    await activeModal.locator('button[role="combobox"]').filter({ hasText: '選択してください' }).first().click();
     await page.waitForTimeout(500);
-    // ★大改修：選択肢はダイアログ外に描画されるため page 全体から探す
     await page.getByText('現在のチーム内', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
@@ -277,7 +273,6 @@ const axios = require('axios');
     await page.waitForTimeout(2000);
 
     console.log(`  - 検索結果からグループ「${groupListDest}」をクリックして展開します。`);
-    // ★大改修：検索結果の選択肢もダイアログ外に描画されるため page 全体から探す
     const groupOptions = page.getByText(groupListDest);
     const groupCount = await groupOptions.count();
     if (groupCount > 1) {
@@ -288,7 +283,6 @@ const axios = require('axios');
     await page.waitForTimeout(2000);
 
     console.log(`  - 展開されたリストからフォルダ「${destFolder}」を探してクリックします。`);
-    // ★大改修：これも page 全体から探す
     const folderTarget = page.getByText(destFolder).last();
     await folderTarget.scrollIntoViewIfNeeded().catch(() => {});
     await folderTarget.click();

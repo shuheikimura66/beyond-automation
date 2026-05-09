@@ -59,7 +59,6 @@ const axios = require('axios');
       if (await fulloutBtn.isVisible().catch(() => false)) {
           await fulloutBtn.click();
       } else {
-          // フルアウトが見つからなければ、一番上（初期選択）のチームでログイン
           await loginBtns.first().click();
       }
       await page.waitForTimeout(5000); 
@@ -112,7 +111,6 @@ const axios = require('axios');
     await page.getByText('登録済みドメインから選択').click();
     await page.waitForTimeout(500);
 
-    // ★大改修：アカウント名が何であっても対応できるように「正規表現（部分一致）」でクリック
     console.log(`  - 「独自ドメイン」を選択します。`);
     await page.getByText(/が登録したドメインから選択/).first().click();
     await page.waitForTimeout(500);
@@ -219,6 +217,9 @@ const axios = require('axios');
     }
     await page.waitForTimeout(4000);
     
+    // =========================================================
+    // ★大改修: [Step 5] 「別フォルダへ複製」を選択（元のコードに戻す）
+    // =========================================================
     console.log(`\n[Step 5] 「別フォルダへ複製」を選択します。`);
     
     console.log(`  - 記事にマウスカーソルを合わせてメニューボタンを出現させます。`);
@@ -229,7 +230,8 @@ const axios = require('axios');
 
     console.log(`  - メニュー（...）ボタンをクリックします。`);
     try {
-        const beyondCopyBtn = page.getByText('beyondページ複製', { exact: true }).filter({ state: 'visible' }).last();
+        // ※正規表現のiフラグで、BeyondPage複製・beyondページ複製の両方に対応
+        const beyondCopyBtn = page.getByText(/beyond(?:page|ページ)複製/i).filter({ state: 'visible' }).last();
         const btnContainer = beyondCopyBtn.locator('xpath=..');
         
         const actionBtns = btnContainer.locator('button, [role="button"], div:has(svg)');
@@ -238,10 +240,10 @@ const axios = require('axios');
         if (count > 1) {
             await actionBtns.nth(count - 2).click();
         } else {
-            await page.locator('svg:right-of(:text("beyondページ複製"))').first().click();
+            await page.locator('svg:right-of(:textMatches("(?i)beyond(?:page|ページ)複製"))').first().click();
         }
     } catch(e) {
-        await page.locator('svg:right-of(:text("beyondページ複製"))').first().click();
+        await page.locator('svg:right-of(:textMatches("(?i)beyond(?:page|ページ)複製"))').first().click();
     }
     await page.waitForTimeout(1000);
 

@@ -50,16 +50,24 @@ const axios = require('axios');
       await page.waitForTimeout(3000);
     }
 
-    // 複数チーム対応（「フルアウト」があれば優先、なければ一番上をクリック）
+    // ★大改修：複数チーム対応（画面全体のdivを拾わないよう、リスト行(li)に限定してフルアウトを探す）
     const loginBtns = page.getByRole('button', { name: 'ログイン', exact: true });
     if (await loginBtns.count() > 0) {
-      console.log(`  => チーム選択画面を検知。ログインを試行します。`);
-      const fulloutBtn = page.locator('li, div').filter({ hasText: 'フルアウト' }).locator('button:has-text("ログイン")').first();
+      console.log(`  => チーム選択画面を検知。チーム「フルアウト」でログインします。`);
+      
+      // 行(listitem)の中に「フルアウト」の文字が含まれる要素に絞り込み、その中のログインボタンを取得
+      const fulloutBtn = page.getByRole('listitem').filter({ hasText: 'フルアウト' }).getByRole('button', { name: 'ログイン', exact: true }).first();
       
       if (await fulloutBtn.isVisible().catch(() => false)) {
           await fulloutBtn.click();
       } else {
-          await loginBtns.first().click();
+          // 万が一 li要素で取れなかった場合の保険（完全一致テキストの同じブロック内のボタンを狙う）
+          try {
+              const exactText = page.getByText('フルアウト', { exact: true }).first();
+              await exactText.locator('xpath=ancestor::*[contains(@class, "MuiBox") or contains(@class, "MuiGrid")][1]//button').first().click();
+          } catch(e) {
+              await loginBtns.first().click();
+          }
       }
       await page.waitForTimeout(5000); 
       await page.waitForLoadState('load');
@@ -218,7 +226,7 @@ const axios = require('axios');
     await page.waitForTimeout(4000);
     
     // =========================================================
-    // ★大改修: [Step 5] 「別フォルダへ複製」を選択（元のコードに戻す）
+    // [Step 5] 「別フォルダへ複製」を選択（元のコードに戻す）
     // =========================================================
     console.log(`\n[Step 5] 「別フォルダへ複製」を選択します。`);
     
@@ -230,7 +238,6 @@ const axios = require('axios');
 
     console.log(`  - メニュー（...）ボタンをクリックします。`);
     try {
-        // ※正規表現のiフラグで、BeyondPage複製・beyondページ複製の両方に対応
         const beyondCopyBtn = page.getByText(/beyond(?:page|ページ)複製/i).filter({ state: 'visible' }).last();
         const btnContainer = beyondCopyBtn.locator('xpath=..');
         

@@ -50,18 +50,15 @@ const axios = require('axios');
       await page.waitForTimeout(3000);
     }
 
-    // ★大改修：複数チーム対応（画面全体のdivを拾わないよう、リスト行(li)に限定してフルアウトを探す）
     const loginBtns = page.getByRole('button', { name: 'ログイン', exact: true });
     if (await loginBtns.count() > 0) {
       console.log(`  => チーム選択画面を検知。チーム「フルアウト」でログインします。`);
       
-      // 行(listitem)の中に「フルアウト」の文字が含まれる要素に絞り込み、その中のログインボタンを取得
       const fulloutBtn = page.getByRole('listitem').filter({ hasText: 'フルアウト' }).getByRole('button', { name: 'ログイン', exact: true }).first();
       
       if (await fulloutBtn.isVisible().catch(() => false)) {
           await fulloutBtn.click();
       } else {
-          // 万が一 li要素で取れなかった場合の保険（完全一致テキストの同じブロック内のボタンを狙う）
           try {
               const exactText = page.getByText('フルアウト', { exact: true }).first();
               await exactText.locator('xpath=ancestor::*[contains(@class, "MuiBox") or contains(@class, "MuiGrid")][1]//button').first().click();
@@ -226,31 +223,39 @@ const axios = require('axios');
     await page.waitForTimeout(4000);
     
     // =========================================================
-    // [Step 5] 「別フォルダへ複製」を選択（元のコードに戻す）
+    // ★大改修: [Step 5] 「別フォルダへ複製」を選択（ホバー＋以前の元のコード）
     // =========================================================
     console.log(`\n[Step 5] 「別フォルダへ複製」を選択します。`);
     
     console.log(`  - 記事にマウスカーソルを合わせてメニューボタンを出現させます。`);
-    const targetArticleEl = page.getByText(sourceArticle).filter({ state: 'visible' }).first();
-    await targetArticleEl.scrollIntoViewIfNeeded().catch(() => {});
-    await targetArticleEl.hover();
+    const targetArticleRow = page.locator('div, li, tr').filter({ hasText: sourceArticle }).last();
+    await targetArticleRow.scrollIntoViewIfNeeded().catch(() => {});
+    await targetArticleRow.hover();
     await page.waitForTimeout(1000);
 
     console.log(`  - メニュー（...）ボタンをクリックします。`);
     try {
-        const beyondCopyBtn = page.getByText(/beyond(?:page|ページ)複製/i).filter({ state: 'visible' }).last();
-        const btnContainer = beyondCopyBtn.locator('xpath=..');
-        
-        const actionBtns = btnContainer.locator('button, [role="button"], div:has(svg)');
-        const count = await actionBtns.count();
-        
-        if (count > 1) {
-            await actionBtns.nth(count - 2).click();
+        // ★ご要望通り、以前正常に動いていた元のロジックをそのまま使用
+        const lastCell = targetArticleRow.locator('td').last();
+        if (await lastCell.isVisible().catch(() => false)) {
+            await lastCell.locator('button').first().click();
         } else {
-            await page.locator('svg:right-of(:textMatches("(?i)beyond(?:page|ページ)複製"))').first().click();
+            const chainIconCount = await targetArticleRow.locator('button').filter({ has: page.locator('path[d^="M67.497"]') }).count();
+            if (chainIconCount > 0) {
+                await targetArticleRow.locator('button').nth(-3).click(); 
+            } else {
+                await targetArticleRow.locator('button').nth(-2).click(); 
+            }
         }
-    } catch(e) {
-        await page.locator('svg:right-of(:textMatches("(?i)beyond(?:page|ページ)複製"))').first().click();
+    } catch (e) {
+        // 万が一の保険として、行の後ろから2番目のボタンを強制クリック
+        const rowBtns = targetArticleRow.locator('button');
+        const btnCount = await rowBtns.count();
+        if (btnCount > 1) {
+            await rowBtns.nth(btnCount - 2).click();
+        } else {
+            await rowBtns.last().click();
+        }
     }
     await page.waitForTimeout(1000);
 

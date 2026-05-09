@@ -223,29 +223,40 @@ const axios = require('axios');
     await page.waitForTimeout(4000);
     
     // =========================================================
-    // ★大改修: [Step 5] 「別フォルダへ複製」を選択（元のコード復活）
+    // ★大改修: [Step 5] 「別フォルダへ複製」を選択
     // =========================================================
     console.log(`\n[Step 5] 「別フォルダへ複製」を選択します。`);
     
-    console.log(`  - 記事にマウスカーソルを合わせてメニューボタンを出現させます。`);
-    // 【重要】右サイドバーの同名記事を誤爆しないように、`.first()` でメインリスト側の行を特定
-    const targetArticleRow = page.locator('div, li, tr').filter({ hasText: sourceArticle }).first();
-    await targetArticleRow.scrollIntoViewIfNeeded().catch(() => {});
-    await targetArticleRow.hover();
+    console.log(`  - 記事のテキストを直接ホバーしてメニューを出現させます。`);
+    // サイドバーの同名記事を誤爆しないよう、最初のものを特定
+    const targetArticleText = page.getByText(sourceArticle).filter({ state: 'visible' }).first();
+    await targetArticleText.scrollIntoViewIfNeeded().catch(() => {});
+    await targetArticleText.hover();
     await page.waitForTimeout(1000);
 
     console.log(`  - メニュー（...）ボタンをクリックします。`);
-    // 以前ご提示いただいた「前の元のコード」をそのまま適用
-    const lastCell = targetArticleRow.locator('td').last();
-    if (await lastCell.isVisible().catch(() => false)) {
-        await lastCell.locator('button').first().click();
-    } else {
-        const chainIconCount = await targetArticleRow.locator('button').filter({ has: page.locator('path[d^="M67.497"]') }).count();
-        if (chainIconCount > 0) {
-            await targetArticleRow.locator('button').nth(-3).click(); 
+    try {
+        // 1. ホバーで出現した「beyondページ複製」ボタンを確実に特定
+        const copyBtn = page.locator('button, div[role="button"]').filter({ hasText: 'beyondページ複製' }).filter({ state: 'visible' }).first();
+        
+        if (await copyBtn.isVisible().catch(() => false)) {
+            // 2. そのボタンの「次」にある兄弟要素（...ボタン）をクリックする！
+            await copyBtn.locator('xpath=following-sibling::*[1]').click();
         } else {
-            await targetArticleRow.locator('button').nth(-2).click(); 
+            // 見つからなかった場合の保険
+            const beyondText = page.getByText('beyondページ複製').filter({ state: 'visible' }).last();
+            const btnGroup = beyondText.locator('xpath=..');
+            const actionBtns = btnGroup.locator('button');
+            const count = await actionBtns.count();
+            if (count >= 2) {
+                await actionBtns.nth(count - 2).click();
+            } else {
+                throw new Error("フォールバックも失敗");
+            }
         }
+    } catch(e) {
+        // 最後の手段
+        await page.locator('button:right-of(:text("beyondページ複製"))').first().click();
     }
     await page.waitForTimeout(1000);
 
@@ -260,7 +271,7 @@ const axios = require('axios');
     const activeModal = page.locator('div[role="dialog"]').last();
 
     console.log(`  - チームを「現在のチーム内」に設定します。`);
-    await activeModal.locator('button[role="combobox"]').filter({ hasText: '選択してください' }).first().click();
+    await activeModal.locator('button[role="combobox"]').first().click();
     await page.waitForTimeout(500);
     await page.getByText('現在のチーム内', { exact: true }).last().click();
     await page.waitForTimeout(1000);

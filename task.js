@@ -112,7 +112,7 @@ const axios = require('axios');
     await page.getByText('登録済みドメインから選択').click();
     await page.waitForTimeout(500);
 
-    // アカウント名が何であっても対応できるように「正規表現（部分一致）」でクリック
+    // ★大改修：アカウント名が何であっても対応できるように「正規表現（部分一致）」でクリック
     console.log(`  - 「独自ドメイン」を選択します。`);
     await page.getByText(/が登録したドメインから選択/).first().click();
     await page.waitForTimeout(500);
@@ -219,37 +219,32 @@ const axios = require('axios');
     }
     await page.waitForTimeout(4000);
     
-    // =========================================================
-    // ★大改修: [Step 5] 「別フォルダへ複製」を選択（確実なホバーとボタンクリック）
-    // =========================================================
     console.log(`\n[Step 5] 「別フォルダへ複製」を選択します。`);
     
-    console.log(`  - 記事の行にマウスカーソルを合わせてメニューボタンを出現させます。`);
-    // 記事の「行全体（コンテナ）」を特定する
-    const targetArticleRow = page.locator('div, li, tr').filter({ hasText: sourceArticle }).last();
-    await targetArticleRow.scrollIntoViewIfNeeded().catch(() => {});
-    await targetArticleRow.hover();
+    console.log(`  - 記事にマウスカーソルを合わせてメニューボタンを出現させます。`);
+    const targetArticleEl = page.getByText(sourceArticle).filter({ state: 'visible' }).first();
+    await targetArticleEl.scrollIntoViewIfNeeded().catch(() => {});
+    await targetArticleEl.hover();
     await page.waitForTimeout(1000);
 
     console.log(`  - メニュー（...）ボタンをクリックします。`);
     try {
-        // その行の中にあるすべてのボタンを取得
-        const actionBtns = targetArticleRow.locator('button');
+        const beyondCopyBtn = page.getByText('beyondページ複製', { exact: true }).filter({ state: 'visible' }).last();
+        const btnContainer = beyondCopyBtn.locator('xpath=..');
+        
+        const actionBtns = btnContainer.locator('button, [role="button"], div:has(svg)');
         const count = await actionBtns.count();
         
         if (count > 1) {
-            // 画像の通りなら一番右が歯車なので、その左隣（右から2番目）が「...」ボタン
             await actionBtns.nth(count - 2).click();
         } else {
-            // 万が一取れなかった場合のフォールバック
-            await actionBtns.last().click();
+            await page.locator('svg:right-of(:text("beyondページ複製"))').first().click();
         }
     } catch(e) {
-        console.log(`    ⚠️ メニューボタンのクリックに失敗しました。スキップして次へ進みます。`);
+        await page.locator('svg:right-of(:text("beyondページ複製"))').first().click();
     }
     await page.waitForTimeout(1000);
 
-    console.log(`  - 開いたメニューから「別フォルダへ複製」をクリックします。`);
     await page.getByText('別フォルダへ複製', { exact: true }).last().click();
     await page.waitForTimeout(3000);
 

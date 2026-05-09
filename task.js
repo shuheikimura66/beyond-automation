@@ -50,7 +50,6 @@ const axios = require('axios');
       await page.waitForTimeout(3000);
     }
 
-    // 複数チーム対応（「フルアウト」の行にあるログインボタンを狙い撃つ）
     const loginBtns = page.getByRole('button', { name: 'ログイン', exact: true });
     if (await loginBtns.count() > 0) {
       console.log(`  => チーム選択画面を検知。チーム「フルアウト」でログインします。`);
@@ -224,12 +223,11 @@ const axios = require('axios');
     await page.waitForTimeout(4000);
     
     // =========================================================
-    // ★大改修: [Step 5] 「別フォルダへ複製」を選択（サイドバー誤爆回避版）
+    // [Step 5] 「別フォルダへ複製」を選択
     // =========================================================
     console.log(`\n[Step 5] 「別フォルダへ複製」を選択します。`);
     
     console.log(`  - 記事にマウスカーソルを合わせてメニューボタンを出現させます。`);
-    // サイドバーの要素を誤爆しないよう、必ず最初に見つかった記事（メインリスト内）を対象にする
     const targetArticleEl = page.getByText(sourceArticle).filter({ state: 'visible' }).first();
     await targetArticleEl.scrollIntoViewIfNeeded().catch(() => {});
     await targetArticleEl.hover();
@@ -237,20 +235,19 @@ const axios = require('axios');
 
     console.log(`  - メニュー（...）ボタンをクリックします。`);
     try {
-        // 「beyondページ複製」ボタンを特定し、その「すぐ右隣にある兄弟要素（...ボタン）」をクリックする
-        const beyondCopyBtn = page.getByRole('button', { name: /beyond(?:page|ページ)複製/i }).filter({ state: 'visible' }).first();
-        await beyondCopyBtn.locator('xpath=following-sibling::button[1]').click();
-    } catch(e) {
-        console.log(`    ⚠️ 正規ルートでのクリックに失敗しました。保険のロジックを試します。`);
-        // 万が一の保険：対象の記事が含まれる「行全体」を特定し、その中のボタンを押す
-        const articleRow = targetArticleEl.locator('xpath=ancestor::*[self::tr or self::li or @role="row"]').first();
-        const actionBtns = articleRow.locator('button');
+        const beyondCopyBtn = page.getByText(/beyond(?:page|ページ)複製/i).filter({ state: 'visible' }).last();
+        const btnContainer = beyondCopyBtn.locator('xpath=..');
+        
+        const actionBtns = btnContainer.locator('button, [role="button"], div:has(svg)');
         const count = await actionBtns.count();
-        if (count > 2) {
-            await actionBtns.nth(count - 2).click(); 
+        
+        if (count > 1) {
+            await actionBtns.nth(count - 2).click();
         } else {
-            await actionBtns.last().click();
+            await page.locator('svg:right-of(:textMatches("(?i)beyond(?:page|ページ)複製"))').first().click();
         }
+    } catch(e) {
+        await page.locator('svg:right-of(:textMatches("(?i)beyond(?:page|ページ)複製"))').first().click();
     }
     await page.waitForTimeout(1000);
 
@@ -265,9 +262,11 @@ const axios = require('axios');
     const activeModal = page.locator('div[role="dialog"]').last();
 
     console.log(`  - チームを「現在のチーム内」に設定します。`);
-    await activeModal.locator('button[role="combobox"]').filter({ hasText: '選択してください' }).first().click();
+    // activeModalの中のコンボボックスをクリック
+    await activeModal.locator('button[role="combobox"]').first().click();
     await page.waitForTimeout(500);
-    await activeModal.getByText('現在のチーム内', { exact: true }).last().click();
+    // ★大改修：選択肢はダイアログ外に描画されるため page 全体から探す
+    await page.getByText('現在のチーム内', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
     console.log(`  - 検索窓にグループ「${groupListDest}」を入力します。`);
@@ -278,7 +277,8 @@ const axios = require('axios');
     await page.waitForTimeout(2000);
 
     console.log(`  - 検索結果からグループ「${groupListDest}」をクリックして展開します。`);
-    const groupOptions = activeModal.getByText(groupListDest);
+    // ★大改修：検索結果の選択肢もダイアログ外に描画されるため page 全体から探す
+    const groupOptions = page.getByText(groupListDest);
     const groupCount = await groupOptions.count();
     if (groupCount > 1) {
         await groupOptions.nth(1).click();
@@ -288,7 +288,8 @@ const axios = require('axios');
     await page.waitForTimeout(2000);
 
     console.log(`  - 展開されたリストからフォルダ「${destFolder}」を探してクリックします。`);
-    const folderTarget = activeModal.getByText(destFolder).last();
+    // ★大改修：これも page 全体から探す
+    const folderTarget = page.getByText(destFolder).last();
     await folderTarget.scrollIntoViewIfNeeded().catch(() => {});
     await folderTarget.click();
     await page.waitForTimeout(1000);

@@ -50,6 +50,7 @@ const axios = require('axios');
       await page.waitForTimeout(3000);
     }
 
+    // 複数チーム対応（「フルアウト」の行にあるログインボタンを狙い撃つ）
     const loginBtns = page.getByRole('button', { name: 'ログイン', exact: true });
     if (await loginBtns.count() > 0) {
       console.log(`  => チーム選択画面を検知。チーム「フルアウト」でログインします。`);
@@ -223,38 +224,32 @@ const axios = require('axios');
     await page.waitForTimeout(4000);
     
     // =========================================================
-    // ★大改修: [Step 5] 「別フォルダへ複製」を選択（ホバー＋以前の元のコード）
+    // ★大改修: [Step 5] 「別フォルダへ複製」を選択（サイドバー誤爆回避版）
     // =========================================================
     console.log(`\n[Step 5] 「別フォルダへ複製」を選択します。`);
     
     console.log(`  - 記事にマウスカーソルを合わせてメニューボタンを出現させます。`);
-    const targetArticleRow = page.locator('div, li, tr').filter({ hasText: sourceArticle }).last();
-    await targetArticleRow.scrollIntoViewIfNeeded().catch(() => {});
-    await targetArticleRow.hover();
+    // サイドバーの要素を誤爆しないよう、必ず最初に見つかった記事（メインリスト内）を対象にする
+    const targetArticleEl = page.getByText(sourceArticle).filter({ state: 'visible' }).first();
+    await targetArticleEl.scrollIntoViewIfNeeded().catch(() => {});
+    await targetArticleEl.hover();
     await page.waitForTimeout(1000);
 
     console.log(`  - メニュー（...）ボタンをクリックします。`);
     try {
-        // ★ご要望通り、以前正常に動いていた元のロジックをそのまま使用
-        const lastCell = targetArticleRow.locator('td').last();
-        if (await lastCell.isVisible().catch(() => false)) {
-            await lastCell.locator('button').first().click();
+        // 「beyondページ複製」ボタンを特定し、その「すぐ右隣にある兄弟要素（...ボタン）」をクリックする
+        const beyondCopyBtn = page.getByRole('button', { name: /beyond(?:page|ページ)複製/i }).filter({ state: 'visible' }).first();
+        await beyondCopyBtn.locator('xpath=following-sibling::button[1]').click();
+    } catch(e) {
+        console.log(`    ⚠️ 正規ルートでのクリックに失敗しました。保険のロジックを試します。`);
+        // 万が一の保険：対象の記事が含まれる「行全体」を特定し、その中のボタンを押す
+        const articleRow = targetArticleEl.locator('xpath=ancestor::*[self::tr or self::li or @role="row"]').first();
+        const actionBtns = articleRow.locator('button');
+        const count = await actionBtns.count();
+        if (count > 2) {
+            await actionBtns.nth(count - 2).click(); 
         } else {
-            const chainIconCount = await targetArticleRow.locator('button').filter({ has: page.locator('path[d^="M67.497"]') }).count();
-            if (chainIconCount > 0) {
-                await targetArticleRow.locator('button').nth(-3).click(); 
-            } else {
-                await targetArticleRow.locator('button').nth(-2).click(); 
-            }
-        }
-    } catch (e) {
-        // 万が一の保険として、行の後ろから2番目のボタンを強制クリック
-        const rowBtns = targetArticleRow.locator('button');
-        const btnCount = await rowBtns.count();
-        if (btnCount > 1) {
-            await rowBtns.nth(btnCount - 2).click();
-        } else {
-            await rowBtns.last().click();
+            await actionBtns.last().click();
         }
     }
     await page.waitForTimeout(1000);
@@ -272,7 +267,7 @@ const axios = require('axios');
     console.log(`  - チームを「現在のチーム内」に設定します。`);
     await activeModal.locator('button[role="combobox"]').filter({ hasText: '選択してください' }).first().click();
     await page.waitForTimeout(500);
-    await page.getByText('現在のチーム内', { exact: true }).last().click();
+    await activeModal.getByText('現在のチーム内', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
     console.log(`  - 検索窓にグループ「${groupListDest}」を入力します。`);

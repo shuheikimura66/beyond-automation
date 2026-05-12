@@ -50,17 +50,18 @@ const axios = require('axios');
       await page.waitForTimeout(3000);
     }
 
-    // ★改修：複数チーム対応（「フルアウト」の行にあるログインボタンを狙い撃つ）
-    const loginBtns = page.getByRole('button', { name: 'ログイン', exact: true });
-    if (await loginBtns.count() > 0) {
+    // ★改修：task.jsと同じく「フルアウト」チームを確実に選択するロジック
+    const teamLoginBtns = page.getByRole('button', { name: 'ログイン', exact: true });
+    if (await teamLoginBtns.count() > 1) {
       console.log(`  => チーム選択画面を検知。チーム「フルアウト」でログインします。`);
-      const fulloutBtn = page.locator('li, div').filter({ hasText: 'フルアウト' }).locator('button:has-text("ログイン")').first();
       
-      if (await fulloutBtn.isVisible().catch(() => false)) {
-          await fulloutBtn.click();
-      } else {
-          // 万が一見つからない場合の保険
-          await loginBtns.first().click();
+      try {
+          // 「フルアウト」の文字を含み、かつ「ログイン」ボタンを内包する一番深い要素(行)を特定してクリック
+          const teamRow = page.locator('*:has-text("フルアウト")').filter({ has: page.getByRole('button', { name: 'ログイン', exact: true }) }).last();
+          await teamRow.getByRole('button', { name: 'ログイン', exact: true }).first().click();
+      } catch(e) {
+          console.log(`    ⚠️ 特定に失敗しました。先頭のチームでログインします。`);
+          await teamLoginBtns.first().click();
       }
       await page.waitForTimeout(5000); 
       await page.waitForLoadState('load');
@@ -151,75 +152,80 @@ const axios = require('axios');
     }
     await page.waitForTimeout(4000);
     
-    console.log(`\n[Step 4] 対象記事のメニューを開きます。`);
-    const targetArticleEl = page.getByText(sourceArticle).filter({ state: 'visible' }).first();
-    await targetArticleEl.scrollIntoViewIfNeeded().catch(() => {});
-    await targetArticleEl.hover(); 
+    // =========================================================
+    // [Step 4] 「別フォルダへ複製」を選択（ホバー＋右隣のボタン）
+    // =========================================================
+    console.log(`\n[Step 4] 「別フォルダへ複製」を選択します。`);
+    
+    console.log(`  - 記事のテキストを直接ホバーしてメニューを出現させます。`);
+    const targetArticleText = page.getByText(sourceArticle).filter({ state: 'visible' }).first();
+    await targetArticleText.scrollIntoViewIfNeeded().catch(() => {});
+    await targetArticleText.hover();
     await page.waitForTimeout(1000);
 
     console.log(`  - メニュー（...）ボタンをクリックします。`);
     try {
-        const beyondCopyBtn = page.getByText('beyondページ複製', { exact: true }).filter({ state: 'visible' }).last();
-        const btnContainer = beyondCopyBtn.locator('xpath=..');
-        const actionBtns = btnContainer.locator('button, [role="button"], div:has(svg)');
-        const count = await actionBtns.count();
-        if (count > 1) {
-            await actionBtns.nth(count - 2).click();
+        const copyBtn = page.locator('button, div[role="button"]').filter({ hasText: 'beyondページ複製' }).filter({ state: 'visible' }).first();
+        
+        if (await copyBtn.isVisible().catch(() => false)) {
+            await copyBtn.locator('xpath=following-sibling::*[1]').click();
         } else {
-            await page.locator('svg:right-of(:text("beyondページ複製"))').first().click();
+            const beyondText = page.getByText('beyondページ複製').filter({ state: 'visible' }).last();
+            const btnGroup = beyondText.locator('xpath=..');
+            const actionBtns = btnGroup.locator('button');
+            const count = await actionBtns.count();
+            if (count >= 2) {
+                await actionBtns.nth(count - 2).click();
+            } else {
+                throw new Error("フォールバックも失敗");
+            }
         }
     } catch(e) {
-        await page.locator('svg:right-of(:text("beyondページ複製"))').first().click();
+        await page.locator('button:right-of(:text("beyondページ複製"))').first().click();
     }
     await page.waitForTimeout(1000);
 
-    // =========================================================
-    // [Step 5] 複製ポップアップ操作（ウィザード完全対応）
-    // =========================================================
-    if (isSameFolder) {
-        console.log(`  => 【パターンA】同じフォルダ内なので「beyondページ複製」を選択します。`);
-        await page.getByText('beyondページ複製', { exact: true }).last().click();
-    } else {
-        console.log(`  => 【パターンB】別フォルダへ移動するため「別フォルダへ複製」を選択します。`);
-        await page.getByText('別フォルダへ複製', { exact: true }).last().click();
-    }
+    await page.getByText('別フォルダへ複製', { exact: true }).last().click();
     await page.waitForTimeout(3000);
+
+    // =========================================================
+    // [Step 5] 複製設定の入力（フォルダ内直接検索対応）
+    // =========================================================
+    console.log(`\n[Step 5] 新規複製ウィザードを進めます。`);
 
     const activeModal = page.locator('div[role="dialog"]').last();
 
-    if (!isSameFolder) {
-        console.log(`  - チームを「現在のチーム内」に設定します。`);
-        await activeModal.locator('button[role="combobox"]').filter({ hasText: '選択してください' }).first().click();
-        await page.waitForTimeout(500);
-        await page.getByText('現在のチーム内', { exact: true }).last().click();
-        await page.waitForTimeout(1000);
+    console.log(`  - チームを「現在のチーム内」に設定します。`);
+    await activeModal.locator('button[role="combobox"]').first().click();
+    await page.waitForTimeout(500);
+    await page.getByText('現在のチーム内', { exact: true }).last().click();
+    await page.waitForTimeout(1000);
 
-        console.log(`  - 検索窓にグループ「${groupListDest}」を入力します。`);
-        const modalFolderSearch = activeModal.locator('input[type="text"]').first();
-        await modalFolderSearch.click();
-        await modalFolderSearch.fill('');
-        await modalFolderSearch.pressSequentially(groupListDest, { delay: 50 });
-        await page.waitForTimeout(2000);
+    console.log(`  - 検索窓にグループ「${groupListDest}」を入力します。`);
+    const modalFolderSearch = activeModal.locator('input[type="text"]').first();
+    await modalFolderSearch.click();
+    await modalFolderSearch.fill('');
+    await modalFolderSearch.pressSequentially(groupListDest, { delay: 50 });
+    await page.waitForTimeout(2000);
 
-        console.log(`  - 検索結果からグループ「${groupListDest}」をクリックして展開します。`);
-        const groupOptions = activeModal.getByText(groupListDest);
-        const groupCount = await groupOptions.count();
-        if (groupCount > 1) {
-            await groupOptions.nth(1).click(); 
-        } else {
-            await groupOptions.last().click();
-        }
-        await page.waitForTimeout(2000);
-
-        console.log(`  - 展開されたリストからフォルダ「${destFolder}」を探してクリックします。`);
-        const folderTarget = activeModal.getByText(destFolder).last();
-        await folderTarget.scrollIntoViewIfNeeded().catch(() => {});
-        await folderTarget.click();
-        await page.waitForTimeout(1000);
-
-        await activeModal.getByText('次へ', { exact: true }).last().click();
-        await page.waitForTimeout(1000);
+    console.log(`  - 検索結果からグループ「${groupListDest}」をクリックして展開します。`);
+    const groupOptions = page.getByText(groupListDest);
+    const groupCount = await groupOptions.count();
+    if (groupCount > 1) {
+        await groupOptions.nth(1).click();
+    } else {
+        await groupOptions.last().click();
     }
+    await page.waitForTimeout(2000);
+
+    console.log(`  - 展開されたリストからフォルダ「${destFolder}」を探してクリックします。`);
+    const folderTarget = page.getByText(destFolder).last();
+    await folderTarget.scrollIntoViewIfNeeded().catch(() => {});
+    await folderTarget.click();
+    await page.waitForTimeout(1000);
+
+    await activeModal.getByText('次へ', { exact: true }).last().click();
+    await page.waitForTimeout(1000);
 
     console.log(`\n[Step 5.5] 複製ウィザードに新規情報を入力します。`);
     

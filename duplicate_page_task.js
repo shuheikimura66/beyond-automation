@@ -32,80 +32,79 @@ const axios = require('axios');
     console.log(`🚀 beyondページ複製 RPA開始 (対象行: ${rowIdx})`);
     console.log(`=========================================`);
 
-    // [Step 1] ログイン
+    // =========================================================
+    // ★超改修：ご指定の「強制ログアウトリセット → フルアウト選択」フロー
+    // =========================================================
     console.log(`\n[Step 1] ターゲットURLにアクセスします: ${targetUrl}`);
     await page.goto(targetUrl);
     await page.waitForLoadState('load');
     await page.waitForTimeout(3000);
 
     const emailInput = page.locator('input[name="email"]');
+    
+    // --- [1] 初回ログイン（もしログイン画面なら） ---
     if (await emailInput.isVisible().catch(() => false)) {
-      console.log(`  => 🔑 ID/PASS入力画面を検知。情報を入力します。`);
+      console.log(`  => 🔑 ログイン画面を検知。一度ログインします。`);
       await emailInput.fill(process.env.SQUADBEYOND_ID);
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(500);
       await page.locator('input[name="password"]').fill(process.env.SQUADBEYOND_PASS);
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(500);
       await page.getByRole('button', { name: 'ログイン' }).first().click();
       await page.waitForLoadState('load');
-      await page.waitForTimeout(3000);
+      await page.waitForTimeout(4000);
     }
 
-    // =========================================================
-    // ★大改修：チーム選択の完全制覇ロジック
-    // =========================================================
-    console.log(`\n[Step 1.1] チームが「フルアウト」か確認・切り替えを行います。`);
-    
-    const teamLoginBtns = page.getByRole('button', { name: 'ログイン', exact: true });
-    if (await teamLoginBtns.count() > 1) {
-        // パターンA: ログイン直後の「リスト型」の画面
-        console.log(`  => リスト型のチーム選択画面を検知。チーム「フルアウト」でログインします。`);
-        try {
-            const teamRow = page.locator('*:has-text("フルアウト")').filter({ has: page.getByRole('button', { name: 'ログイン', exact: true }) }).last();
-            await teamRow.getByRole('button', { name: 'ログイン', exact: true }).first().click();
-        } catch(e) {
-            console.log(`    ⚠️ 特定に失敗しました。先頭のチームでログインします。`);
-            await teamLoginBtns.first().click();
+    // --- [2] 「小」を押して「ログアウト」 ---
+    console.log(`\n[Step 1.1] システムバグ回避のため、強制ログアウトを実行します。`);
+    try {
+        // ご指定の <div>小</div> を正確にクリック
+        const profileIcon = page.locator('div').filter({ hasText: /^小$/ }).last();
+        if (await profileIcon.isVisible().catch(() => false)) {
+            await profileIcon.click();
+        } else {
+            await page.locator('[data-testid="list-menu-item"]').nth(-2).click();
         }
-        await page.waitForTimeout(5000); 
-        await page.waitForLoadState('load');
-    } else {
-        // パターンB: ダッシュボード等ですでにログイン済みの場合の「ポップアップ型」切り替え
-        let popupMenu = page.locator('[role="presentation"], [role="dialog"], .MuiPopover-root').filter({ state: 'visible' });
-        
-        // メニューがまだ開いていなければ、画面左下の「ID: 〇〇」をクリックして強制的にメニューを展開する
-        if (await popupMenu.count() === 0) {
-            const teamMenuTrigger = page.locator('div, span, button').filter({ hasText: /ID:\s*\d+/ }).last();
-            if (await teamMenuTrigger.isVisible().catch(() => false)) {
-                await teamMenuTrigger.click();
-                await page.waitForTimeout(2000); // メニューが開くのを待つ
-            }
-        }
+        await page.waitForTimeout(1500);
 
-        // メニュー展開後、ご指定の「divタグの完全一致テキスト」をクリック
-        popupMenu = page.locator('[role="presentation"], [role="dialog"], .MuiPopover-root').filter({ state: 'visible' });
-        if (await popupMenu.count() > 0) {
-            console.log(`  => ポップアップ型のチームメニューから「フルアウト」を選択します。`);
-            try {
-                // ご指定の <div>フルアウト</div> に合致する要素のうち、一番下（「全て」リスト内）を確実にクリック
-                const fulloutItem = popupMenu.locator('div').filter({ hasText: /^フルアウト$/ }).last();
-                if (await fulloutItem.isVisible().catch(() => false)) {
-                    await fulloutItem.click();
-                    await page.waitForTimeout(4000); // 切り替えロード待機
-                } else {
-                    // 万が一見つからない場合はメニューの邪魔にならないよう閉じる
-                    await page.keyboard.press('Escape');
-                }
-            } catch(e) {
-                console.log(`    ⚠️ メニュー内のクリックに失敗しました。`);
-                await page.keyboard.press('Escape');
-            }
-        }
+        // ご指定の <div>ログアウト</div> をクリック
+        const logoutBtn = page.getByText('ログアウト', { exact: true }).last();
+        await logoutBtn.click();
+        console.log(`  => ✅ ログアウト完了`);
+        await page.waitForLoadState('load');
+        await page.waitForTimeout(3000);
+    } catch(e) {
+        console.log(`  => ⚠️ ログアウトスキップ（すでにログアウト済み等）`);
+    }
+
+    // --- [3] 再度ログイン ---
+    console.log(`\n[Step 1.2] クリーンな状態で再度ログインを実行します。`);
+    if (await emailInput.isVisible().catch(() => false)) {
+      await emailInput.fill(process.env.SQUADBEYOND_ID);
+      await page.waitForTimeout(500);
+      await page.locator('input[name="password"]').fill(process.env.SQUADBEYOND_PASS);
+      await page.waitForTimeout(500);
+      await page.getByRole('button', { name: 'ログイン' }).first().click();
+      await page.waitForLoadState('load');
+      await page.waitForTimeout(4000);
+    }
+
+    // --- [4] 「フルアウト」を選択 ---
+    console.log(`\n[Step 1.3] チーム「フルアウト」を選択します。`);
+    try {
+        // ご指定の <div>フルアウト</div> を確実にクリック
+        const fulloutDiv = page.locator('div').filter({ hasText: /^フルアウト$/ }).last();
+        await fulloutDiv.click();
+        console.log(`  => ✅ フルアウト選択完了`);
+        await page.waitForTimeout(5000);
+        await page.waitForLoadState('load');
+    } catch(e) {
+        console.log(`  => ⚠️ フルアウト選択スキップ（自動遷移した可能性があります）`);
     }
 
     // =========================================================
     // [Step 1.2] 新旧デザインの確認と切り替え
     // =========================================================
-    console.log(`\n[Step 1.2] UIデザインの確認を行います。`);
+    console.log(`\n[Step 1.4] UIデザインの確認を行います。`);
     const newDesignBtn = page.locator('div, button').filter({ hasText: '新デザインを試す' }).last();
     if (await newDesignBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
         console.log(`  => 🎨 旧デザインを検知しました。「新デザインを試す」をクリックして切り替えます。`);
@@ -188,35 +187,37 @@ const axios = require('axios');
     await page.waitForTimeout(4000);
     
     // =========================================================
-    // [Step 4] 「別フォルダへ複製」を選択（ホバー＋右隣のボタン）
+    // [Step 4] 「別フォルダへ複製」を選択
     // =========================================================
     console.log(`\n[Step 4] 「別フォルダへ複製」を選択します。`);
     
     console.log(`  - 記事のテキストを直接ホバーしてメニューを出現させます。`);
-    const targetArticleText = page.getByText(sourceArticle).filter({ state: 'visible' }).first();
-    await targetArticleText.scrollIntoViewIfNeeded().catch(() => {});
-    await targetArticleText.hover();
+    const targetArticleRow = page.locator('div, li, tr').filter({ hasText: sourceArticle }).first();
+    await targetArticleRow.scrollIntoViewIfNeeded().catch(() => {});
+    await targetArticleRow.hover(); 
     await page.waitForTimeout(1000);
 
     console.log(`  - メニュー（...）ボタンをクリックします。`);
     try {
-        const copyBtn = page.locator('button, div[role="button"]').filter({ hasText: 'beyondページ複製' }).filter({ state: 'visible' }).first();
-        
-        if (await copyBtn.isVisible().catch(() => false)) {
-            await copyBtn.locator('xpath=following-sibling::*[1]').click();
+        const lastCell = targetArticleRow.locator('td').last();
+        if (await lastCell.isVisible().catch(() => false)) {
+            await lastCell.locator('button').first().click();
         } else {
-            const beyondText = page.getByText('beyondページ複製').filter({ state: 'visible' }).last();
-            const btnGroup = beyondText.locator('xpath=..');
-            const actionBtns = btnGroup.locator('button');
-            const count = await actionBtns.count();
-            if (count >= 2) {
-                await actionBtns.nth(count - 2).click();
+            const chainIconCount = await targetArticleRow.locator('button').filter({ has: page.locator('path[d^="M67.497"]') }).count();
+            if (chainIconCount > 0) {
+                await targetArticleRow.locator('button').nth(-3).click(); 
             } else {
-                throw new Error("フォールバックも失敗");
+                await targetArticleRow.locator('button').nth(-2).click(); 
             }
         }
-    } catch(e) {
-        await page.locator('button:right-of(:text("beyondページ複製"))').first().click();
+    } catch (e) {
+        const rowBtns = targetArticleRow.locator('button');
+        const btnCount = await rowBtns.count();
+        if (btnCount > 1) {
+            await rowBtns.nth(btnCount - 2).click();
+        } else {
+            await rowBtns.last().click();
+        }
     }
     await page.waitForTimeout(1000);
 
@@ -224,7 +225,7 @@ const axios = require('axios');
     await page.waitForTimeout(3000);
 
     // =========================================================
-    // [Step 5] 複製設定の入力（フォルダ内直接検索対応）
+    // [Step 5] 複製設定の入力
     // =========================================================
     console.log(`\n[Step 5] 新規複製ウィザードを進めます。`);
 

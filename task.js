@@ -32,48 +32,76 @@ const axios = require('axios');
     console.log(`🚀 RPA開始 (対象行: ${rowIdx})`);
     console.log(`=========================================`);
 
-    // [Step 1] ログイン
+    // =========================================================
+    // [Step 1] 強制ログアウトリセット → フルアウト選択
+    // =========================================================
     console.log(`\n[Step 1] ターゲットURLにアクセスします: ${targetUrl}`);
     await page.goto(targetUrl);
     await page.waitForLoadState('load');
     await page.waitForTimeout(3000);
 
     const emailInput = page.locator('input[name="email"]');
+    
+    // --- [1] 初回ログイン（もしログイン画面なら） ---
     if (await emailInput.isVisible().catch(() => false)) {
-      console.log(`  => 🔑 ID/PASS入力画面を検知。情報を入力します。`);
+      console.log(`  => 🔑 ログイン画面を検知。一度ログインします。`);
       await emailInput.fill(process.env.SQUADBEYOND_ID);
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(500);
       await page.locator('input[name="password"]').fill(process.env.SQUADBEYOND_PASS);
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(500);
       await page.getByRole('button', { name: 'ログイン' }).first().click();
       await page.waitForLoadState('load');
-      await page.waitForTimeout(3000);
+      await page.waitForTimeout(4000);
     }
 
-    const loginBtns = page.getByRole('button', { name: 'ログイン', exact: true });
-    if (await loginBtns.count() > 0) {
-      console.log(`  => チーム選択画面を検知。チーム「フルアウト」でログインします。`);
-      
-      const fulloutBtn = page.getByRole('listitem').filter({ hasText: 'フルアウト' }).getByRole('button', { name: 'ログイン', exact: true }).first();
-      
-      if (await fulloutBtn.isVisible().catch(() => false)) {
-          await fulloutBtn.click();
-      } else {
-          try {
-              const exactText = page.getByText('フルアウト', { exact: true }).first();
-              await exactText.locator('xpath=ancestor::*[contains(@class, "MuiBox") or contains(@class, "MuiGrid")][1]//button').first().click();
-          } catch(e) {
-              await loginBtns.first().click();
-          }
-      }
-      await page.waitForTimeout(5000); 
+    // --- [2] 「小」を押して「ログアウト」 ---
+    console.log(`\n[Step 1.1] システムバグ回避のため、強制ログアウトを実行します。`);
+    try {
+        const profileIcon = page.locator('div').filter({ hasText: /^小$/ }).last();
+        if (await profileIcon.isVisible().catch(() => false)) {
+            await profileIcon.click();
+        } else {
+            await page.locator('[data-testid="list-menu-item"]').nth(-2).click();
+        }
+        await page.waitForTimeout(1500);
+
+        const logoutBtn = page.getByText('ログアウト', { exact: true }).last();
+        await logoutBtn.click();
+        console.log(`  => ✅ ログアウト完了`);
+        await page.waitForLoadState('load');
+        await page.waitForTimeout(3000);
+    } catch(e) {
+        console.log(`  => ⚠️ ログアウトスキップ（すでにログアウト済み等）`);
+    }
+
+    // --- [3] 再度ログイン ---
+    console.log(`\n[Step 1.2] クリーンな状態で再度ログインを実行します。`);
+    if (await emailInput.isVisible().catch(() => false)) {
+      await emailInput.fill(process.env.SQUADBEYOND_ID);
+      await page.waitForTimeout(500);
+      await page.locator('input[name="password"]').fill(process.env.SQUADBEYOND_PASS);
+      await page.waitForTimeout(500);
+      await page.getByRole('button', { name: 'ログイン' }).first().click();
       await page.waitForLoadState('load');
+      await page.waitForTimeout(4000);
+    }
+
+    // --- [4] 「フルアウト」を選択 ---
+    console.log(`\n[Step 1.3] チーム「フルアウト」を選択します。`);
+    try {
+        const fulloutDiv = page.locator('div').filter({ hasText: /^フルアウト$/ }).last();
+        await fulloutDiv.click();
+        console.log(`  => ✅ フルアウト選択完了`);
+        await page.waitForTimeout(5000);
+        await page.waitForLoadState('load');
+    } catch(e) {
+        console.log(`  => ⚠️ フルアウト選択スキップ（自動遷移した可能性があります）`);
     }
 
     // =========================================================
     // [Step 1.2] 新旧デザインの確認と切り替え
     // =========================================================
-    console.log(`\n[Step 1.2] UIデザインの確認を行います。`);
+    console.log(`\n[Step 1.4] UIデザインの確認を行います。`);
     const newDesignBtn = page.locator('div, button').filter({ hasText: '新デザインを試す' }).last();
     if (await newDesignBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
         console.log(`  => 🎨 旧デザインを検知しました。「新デザインを試す」をクリックして切り替えます。`);
@@ -223,40 +251,44 @@ const axios = require('axios');
     await page.waitForTimeout(4000);
     
     // =========================================================
-    // ★大改修: [Step 5] 「別フォルダへ複製」を選択
+    // ★大改修: [Step 5] 「別フォルダへ複製」を選択（ホバー確実発動版）
     // =========================================================
     console.log(`\n[Step 5] 「別フォルダへ複製」を選択します。`);
     
     console.log(`  - 記事のテキストを直接ホバーしてメニューを出現させます。`);
-    // サイドバーの同名記事を誤爆しないよう、最初のものを特定
-    const targetArticleText = page.getByText(sourceArticle).filter({ state: 'visible' }).first();
+    // テキストそのものをピンポイントで狙い、確実にホバー状態を発動させる
+    const targetArticleText = page.getByText(sourceArticle, { exact: false }).first();
     await targetArticleText.scrollIntoViewIfNeeded().catch(() => {});
-    await targetArticleText.hover();
-    await page.waitForTimeout(1000);
+    await targetArticleText.hover({ force: true }); 
+    await page.waitForTimeout(1500); // アニメーション待機
 
     console.log(`  - メニュー（...）ボタンをクリックします。`);
     try {
-        // 1. ホバーで出現した「beyondページ複製」ボタンを確実に特定
-        const copyBtn = page.locator('button, div[role="button"]').filter({ hasText: 'beyondページ複製' }).filter({ state: 'visible' }).first();
+        // ホバーで出現した「beyondページ複製」のテキストを目印にする
+        const copyBtnText = page.getByText(/beyond(?:page|ページ)複製/i).last();
+        await copyBtnText.waitFor({ state: 'visible', timeout: 3000 });
         
-        if (await copyBtn.isVisible().catch(() => false)) {
-            // 2. そのボタンの「次」にある兄弟要素（...ボタン）をクリックする！
-            await copyBtn.locator('xpath=following-sibling::*[1]').click();
+        // そのテキストを囲んでいるボタングループ（親要素）を取得
+        const btnGroup = copyBtnText.locator('xpath=ancestor::*[button or @role="button"][1]');
+        const actionBtns = btnGroup.locator('button, [role="button"]');
+        const count = await actionBtns.count();
+        
+        if (count >= 2) {
+            // 画像の並び通り、一番右(設定)の左隣が(...)ボタンなので、後ろから2番目を押す
+            await actionBtns.nth(count - 2).click();
         } else {
-            // 見つからなかった場合の保険
-            const beyondText = page.getByText('beyondページ複製').filter({ state: 'visible' }).last();
-            const btnGroup = beyondText.locator('xpath=..');
-            const actionBtns = btnGroup.locator('button');
-            const count = await actionBtns.count();
-            if (count >= 2) {
-                await actionBtns.nth(count - 2).click();
-            } else {
-                throw new Error("フォールバックも失敗");
-            }
+            await actionBtns.last().click();
         }
-    } catch(e) {
-        // 最後の手段
-        await page.locator('button:right-of(:text("beyondページ複製"))').first().click();
+    } catch (e) {
+        console.log(`    ⚠️ 正規ルートでのボタン取得に失敗。ユーザー様の元のロジックを適用します。`);
+        const fallbackRow = targetArticleText.locator('xpath=ancestor::tr | ancestor::li | ancestor::div[descendant::button][1]').last();
+        const fallbackBtns = fallbackRow.locator('button');
+        const btnCount = await fallbackBtns.count();
+        if (btnCount > 1) {
+            await fallbackBtns.nth(btnCount - 2).click();
+        } else {
+            await fallbackBtns.last().click();
+        }
     }
     await page.waitForTimeout(1000);
 

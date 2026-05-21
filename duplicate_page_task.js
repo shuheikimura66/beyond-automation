@@ -54,7 +54,6 @@ const axios = require('axios');
       await page.waitForTimeout(4000);
     }
 
-    // --- [2] 強制ログアウト ---
     console.log(`\n[Step 1.1] システムバグ回避のため、強制ログアウトを実行します。`);
     try {
         const profileIcon = page.locator('div').filter({ hasText: /^小$/ }).last();
@@ -74,7 +73,6 @@ const axios = require('axios');
         console.log(`  => ⚠️ ログアウトスキップ（すでにログアウト済み等）`);
     }
 
-    // --- [3] 再度ログイン ---
     console.log(`\n[Step 1.2] クリーンな状態で再度ログインを実行します。`);
     if (await emailInput.isVisible().catch(() => false)) {
       await emailInput.fill(process.env.SQUADBEYOND_ID);
@@ -86,7 +84,6 @@ const axios = require('axios');
       await page.waitForTimeout(4000);
     }
 
-    // --- [4] 「フルアウト」を選択 ---
     console.log(`\n[Step 1.3] チーム「フルアウト」を選択します。`);
     try {
         const fulloutDiv = page.locator('div').filter({ hasText: /^フルアウト$/ }).last();
@@ -231,16 +228,13 @@ const axios = require('axios');
 
     if (!isSameFolder) {
         console.log(`  - 1.複製先チームを「現在のチーム内」に設定します。`);
-        // 「選択してください」や「現在のチーム内」のテキストを直接狙ってプルダウンを開く
         const teamDropdownTrigger = activeModal.getByText(/選択してください|現在のチーム内/).first();
         await teamDropdownTrigger.click({ force: true });
         await page.waitForTimeout(1000);
-        // ポップアップ（画面全体）から「現在のチーム内」を選ぶ
         await page.getByText('現在のチーム内', { exact: true }).last().click();
         await page.waitForTimeout(1000);
 
         console.log(`  - 2.複製先フォルダを選択します。`);
-        // 「フォルダを選択...」のテキストを直接狙ってプルダウンを開く
         const folderDropdownTrigger = activeModal.getByText('フォルダを選択...').first();
         await folderDropdownTrigger.click({ force: true });
         await page.waitForTimeout(1000);
@@ -302,15 +296,17 @@ const axios = require('axios');
         console.log(`    ⚠️ ページ名の入力欄が見つかりませんでした。`);
     }
 
+    // ★今回の超重要ポイント：見切れていても強制的にクリックさせる（force: true）
     console.log(`  - 「設定確認」を押します。`);
     const confirmBtn = activeModal.getByText('設定確認', { exact: true }).last();
-    await confirmBtn.click();
+    await confirmBtn.click({ force: true }); // 強制クリックを付与
     await page.waitForTimeout(2000);
 
     console.log(`  - 「この内容でページを複製する」をクリックします。`);
-    const finalCopyBtn = activeModal.getByText('この内容でページを複製する', { exact: true }).last();
-    await finalCopyBtn.waitFor({ state: 'visible', timeout: 10000 });
-    await finalCopyBtn.click();
+    // activeModalからではなく、ページ全体から探す（画面が切り替わっている可能性があるため）
+    const finalCopyBtn = page.getByText('この内容でページを複製する', { exact: true }).last();
+    await finalCopyBtn.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{}); // エラーを出さずに待機
+    await finalCopyBtn.click({ force: true }); // 見切れていても強制クリックを付与
     
     console.log(`  => ⏳ 複製処理の完了を待機しています...`);
     

@@ -42,6 +42,7 @@ const axios = require('axios');
 
     const emailInput = page.locator('input[name="email"]');
     
+    // --- [1] 初回ログイン ---
     if (await emailInput.isVisible().catch(() => false)) {
       console.log(`  => 🔑 ログイン画面を検知。一度ログインします。`);
       await emailInput.fill(process.env.SQUADBEYOND_ID);
@@ -53,6 +54,7 @@ const axios = require('axios');
       await page.waitForTimeout(4000);
     }
 
+    // --- [2] 強制ログアウト ---
     console.log(`\n[Step 1.1] システムバグ回避のため、強制ログアウトを実行します。`);
     try {
         const profileIcon = page.locator('div').filter({ hasText: /^小$/ }).last();
@@ -72,6 +74,7 @@ const axios = require('axios');
         console.log(`  => ⚠️ ログアウトスキップ（すでにログアウト済み等）`);
     }
 
+    // --- [3] 再度ログイン ---
     console.log(`\n[Step 1.2] クリーンな状態で再度ログインを実行します。`);
     if (await emailInput.isVisible().catch(() => false)) {
       await emailInput.fill(process.env.SQUADBEYOND_ID);
@@ -83,6 +86,7 @@ const axios = require('axios');
       await page.waitForTimeout(4000);
     }
 
+    // --- [4] 「フルアウト」を選択 ---
     console.log(`\n[Step 1.3] チーム「フルアウト」を選択します。`);
     try {
         const fulloutDiv = page.locator('div').filter({ hasText: /^フルアウト$/ }).last();
@@ -225,40 +229,45 @@ const axios = require('axios');
 
     const activeModal = page.locator('div[role="dialog"]').last();
 
-    console.log(`  - 1.複製先チームを「現在のチーム内」に設定します。`);
-    const teamSection = activeModal.locator('div, section').filter({ hasText: '1.複製先チーム選択' }).last();
-    await teamSection.locator('button[role="combobox"]').first().click({ force: true });
-    await page.waitForTimeout(500);
-    await page.getByText('現在のチーム内', { exact: true }).last().click();
-    await page.waitForTimeout(1000);
+    if (!isSameFolder) {
+        console.log(`  - 1.複製先チームを「現在のチーム内」に設定します。`);
+        // 「選択してください」や「現在のチーム内」のテキストを直接狙ってプルダウンを開く
+        const teamDropdownTrigger = activeModal.getByText(/選択してください|現在のチーム内/).first();
+        await teamDropdownTrigger.click({ force: true });
+        await page.waitForTimeout(1000);
+        // ポップアップ（画面全体）から「現在のチーム内」を選ぶ
+        await page.getByText('現在のチーム内', { exact: true }).last().click();
+        await page.waitForTimeout(1000);
 
-    console.log(`  - 2.複製先フォルダを選択します。`);
-    const folderSection = activeModal.locator('div, section').filter({ hasText: '2.複製先フォルダを選択' }).last();
-    await folderSection.locator('button[role="combobox"]').first().click({ force: true });
-    await page.waitForTimeout(1000);
+        console.log(`  - 2.複製先フォルダを選択します。`);
+        // 「フォルダを選択...」のテキストを直接狙ってプルダウンを開く
+        const folderDropdownTrigger = activeModal.getByText('フォルダを選択...').first();
+        await folderDropdownTrigger.click({ force: true });
+        await page.waitForTimeout(1000);
 
-    console.log(`  - 検索窓にフォルダ名「${destFolder}」を入力します。`);
-    const modalFolderSearch = page.locator('input[type="text"]').filter({ state: 'visible' }).last();
-    await modalFolderSearch.click({ force: true });
-    await modalFolderSearch.fill('');
-    await modalFolderSearch.pressSequentially(destFolder, { delay: 50 });
-    await page.waitForTimeout(2000);
+        console.log(`  - 検索窓にフォルダ名「${destFolder}」を入力します。`);
+        const modalFolderSearch = page.locator('input[type="text"]').filter({ state: 'visible' }).last();
+        await modalFolderSearch.click({ force: true });
+        await modalFolderSearch.fill('');
+        await modalFolderSearch.pressSequentially(destFolder, { delay: 50 });
+        await page.waitForTimeout(2000);
 
-    console.log(`  - 検索結果からグループ「${groupListDest}」をクリックして展開します。`);
-    const groupOptions = page.getByText(groupListDest);
-    const groupCount = await groupOptions.count();
-    if (groupCount > 1) {
-        await groupOptions.nth(1).click();
-    } else {
-        await groupOptions.last().click();
+        console.log(`  - 検索結果からグループ「${groupListDest}」をクリックして展開します。`);
+        const groupOptions = page.getByText(groupListDest);
+        const groupCount = await groupOptions.count();
+        if (groupCount > 1) {
+            await groupOptions.nth(1).click();
+        } else {
+            await groupOptions.last().click();
+        }
+        await page.waitForTimeout(2000);
+
+        console.log(`  - 展開されたリストからフォルダ「${destFolder}」を探してクリックします。`);
+        const folderTarget = page.getByText(destFolder).last();
+        await folderTarget.scrollIntoViewIfNeeded().catch(() => {});
+        await folderTarget.click();
+        await page.waitForTimeout(1000);
     }
-    await page.waitForTimeout(2000);
-
-    console.log(`  - 展開されたリストからフォルダ「${destFolder}」を探してクリックします。`);
-    const folderTarget = page.getByText(destFolder).last();
-    await folderTarget.scrollIntoViewIfNeeded().catch(() => {});
-    await folderTarget.click();
-    await page.waitForTimeout(1000);
 
     console.log(`  - 3.配信URLとページ名を設定します。`);
     if (deliveryUrl) {

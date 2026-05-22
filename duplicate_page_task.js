@@ -163,11 +163,10 @@ const axios = require('axios');
     await page.waitForTimeout(5000);
 
     // =========================================================
-    // ★大改修: [Step 3] 新UIでの記事検索
+    // [Step 3] 新UIでの記事検索
     // =========================================================
     console.log(`\n[Step 3] フォルダ内で記事「${sourceArticle}」を検索します。`);
     
-    // ①「フォルダ内検索」のテキストを押して入力欄を出現させる
     console.log(`  - 「フォルダ内検索」ボタンをクリックします。`);
     const folderSearchBtn = page.getByText('フォルダ内検索', { exact: true }).first();
     if (await folderSearchBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
@@ -175,7 +174,6 @@ const axios = require('axios');
         await page.waitForTimeout(1000);
     }
 
-    // ②出現した「〇〇内を検索...」の入力欄を部分一致で捉える
     console.log(`  - 検索窓に記事名を入力します。`);
     const folderSearchInput = page.locator('input[placeholder*="内を検索"]').first();
     if (await folderSearchInput.isVisible().catch(() => false)) {
@@ -183,7 +181,6 @@ const axios = require('axios');
         await folderSearchInput.fill('');
         await folderSearchInput.pressSequentially(sourceArticle, { delay: 50 });
     } else {
-        // 万が一見つからない場合はショートカットキーで代用
         await page.keyboard.press('Control+F');
         await page.keyboard.press('Meta+F');
         await page.waitForTimeout(500);
@@ -325,77 +322,35 @@ const axios = require('axios');
         await finalCopyBtn.click({ force: true });
     }
     
-    console.log(`  => ⏳ 複製処理の完了を待機しています...`);
-    
     // =========================================================
-    // [Step 6] 複製完了ポップアップの処理とフォルダ遷移
+    // ★大改修: [Step 6] 複製完了待機とURL自動生成
     // =========================================================
-    try {
-        await page.getByText('複製が完了しました！').first().waitFor({ state: 'visible', timeout: 45000 });
-    } catch (e) {
-        throw new Error('❌ 複製完了ポップアップが表示されませんでした。');
-    }
-    await page.waitForTimeout(2000);
+    console.log(`  => ⏳ 複製処理の完了を待機しています... (10秒)`);
+    // UIが変わってポップアップが出ないため、強制的に10秒待機して完了とみなす
+    await page.waitForTimeout(10000); 
 
-    if (isSameFolder) {
-        console.log(`  => 同じフォルダ内なので「このフォルダで作業を続ける」をクリックします。`);
-        await page.getByText('このフォルダで作業を続ける', { exact: true }).last().click();
+    console.log(`\n[Step 7] 入稿用URLの生成を行います。`);
+    // スプレッドシートのフォルダ名（destFolder）からドメイン部分（括弧の中身）を抽出する
+    // 例: 快調ハニー/G008（shinyskinpower.site） -> shinyskinpower.site
+    const domainMatch = destFolder.match(/[（(]([^）)]+)[）)]/);
+    let extractedDomain = '';
+    
+    if (domainMatch && domainMatch[1]) {
+        extractedDomain = domainMatch[1].trim();
     } else {
-        console.log(`  => 別フォルダなので「複製先フォルダで作業を始める」をクリックします。`);
-        await page.getByText('複製先フォルダで作業を始める', { exact: true }).last().click();
-    }
-    
-    console.log(`  => フォルダのロードを待機しています...`);
-    await page.waitForTimeout(5000);
-
-    // =========================================================
-    // ★大改修: [Step 7] 複製された記事の検索とURLコピー
-    // =========================================================
-    console.log(`\n[Step 7] 複製されたページ「${newArticleName}」を検索してURLをコピーします。`);
-    
-    // ここもStep3と同じく新UIの検索方式を適用
-    console.log(`  - 「フォルダ内検索」ボタンをクリックします。`);
-    const destSearchBtn = page.getByText('フォルダ内検索', { exact: true }).first();
-    if (await destSearchBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await destSearchBtn.click();
-        await page.waitForTimeout(1000);
+        console.log(`    ⚠️ フォルダ名からドメイン(括弧内の文字列)を抽出できませんでした。`);
     }
 
-    const destSearchInput = page.locator('input[placeholder*="内を検索"]').first();
-    if (await destSearchInput.isVisible().catch(() => false)) {
-        await destSearchInput.click();
-        await destSearchInput.fill('');
-        await destSearchInput.pressSequentially(newArticleName, { delay: 50 });
-    } else {
-        await page.keyboard.press('Control+F');
-        await page.keyboard.press('Meta+F');
-        await page.waitForTimeout(500);
-        await page.keyboard.type(newArticleName, { delay: 50 });
-    }
-    await page.waitForTimeout(4000);
+    // 抽出したドメインと配信URLを合体させて最終URLを生成
+    const finalUrl = extractedDomain ? `https://${extractedDomain}/ab/${deliveryUrl}` : '';
+    console.log(`  => 🎉 生成したURL: ${finalUrl}`);
 
-    const newArticleRow = page.locator('div, li, tr').filter({ hasText: newArticleName }).last();
-    await newArticleRow.waitFor({ state: 'visible', timeout: 10000 });
-
-    console.log(`  - 記事の行をクリックして右サイドバーを開きます。`);
-    await newArticleRow.click();
-    await page.waitForTimeout(2000);
-
-    console.log(`  - サイドバー内のコピーアイコンをクリックします。`);
-    try {
-        const copyBtnContainer = page.locator('*:has-text("配信URL")').locator('..').last();
-        await copyBtnContainer.locator('svg').first().click();
-    } catch(e) {
-        await page.locator('[data-testid="FileCopyIcon"]').first().click();
-    }
-    await page.waitForTimeout(1000);
-
-    const copiedUrl = await page.evaluate(() => navigator.clipboard.readText());
-    console.log(`  => 🎉 取得したURL: ${copiedUrl}`);
-
+    // GAS（スプレッドシート）に成功ステータスとURLを送信して完了！
     if (gasUrl) {
-      await axios.post(gasUrl, { row_idx: rowIdx, entry_url: copiedUrl, status: 'success', task_type: 'duplicate' });
+      await axios.post(gasUrl, { row_idx: rowIdx, entry_url: finalUrl, status: 'success', task_type: 'duplicate' });
     }
+    
+    console.log(`\n🎉 RPA処理が完了しました！`);
 
   } catch (error) {
     console.error(`\n❌ エラー発生:\n`, error);

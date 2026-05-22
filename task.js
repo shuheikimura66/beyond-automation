@@ -42,7 +42,7 @@ const axios = require('axios');
 
     const emailInput = page.locator('input[name="email"]');
     
-    // --- [1] 初回ログイン（もしログイン画面なら） ---
+    // --- [1] 初回ログイン ---
     if (await emailInput.isVisible().catch(() => false)) {
       console.log(`  => 🔑 ログイン画面を検知。一度ログインします。`);
       await emailInput.fill(process.env.SQUADBEYOND_ID);
@@ -233,12 +233,20 @@ const axios = require('axios');
     await page.waitForTimeout(5000);
     
     // =========================================================
-    // [Step 4] 新UIでの記事検索とメニュー展開
+    // [Step 4] 新UIでの記事検索
     // =========================================================
     console.log(`\n[Step 4] フォルダ内で記事「${sourceArticle}」を検索します。`);
     
-    const folderSearchInput = page.getByPlaceholder('フォルダ内検索').first();
-    if (await folderSearchInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+    console.log(`  - 「フォルダ内検索」ボタンをクリックします。`);
+    const folderSearchBtn = page.getByText('フォルダ内検索', { exact: true }).first();
+    if (await folderSearchBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await folderSearchBtn.click();
+        await page.waitForTimeout(1000);
+    }
+
+    console.log(`  - 検索窓に記事名を入力します。`);
+    const folderSearchInput = page.locator('input[placeholder*="内を検索"]').first();
+    if (await folderSearchInput.isVisible().catch(() => false)) {
         await folderSearchInput.click();
         await folderSearchInput.fill('');
         await folderSearchInput.pressSequentially(sourceArticle, { delay: 50 });
@@ -251,30 +259,26 @@ const axios = require('axios');
     await page.waitForTimeout(4000);
     
     // =========================================================
-    // ★大改修: [Step 5] 「別フォルダへ複製」を選択（ホバー確実発動版）
+    // [Step 5] メニューを開き「複製」を選択
     // =========================================================
     console.log(`\n[Step 5] 「別フォルダへ複製」を選択します。`);
     
     console.log(`  - 記事のテキストを直接ホバーしてメニューを出現させます。`);
-    // テキストそのものをピンポイントで狙い、確実にホバー状態を発動させる
     const targetArticleText = page.getByText(sourceArticle, { exact: false }).first();
     await targetArticleText.scrollIntoViewIfNeeded().catch(() => {});
     await targetArticleText.hover({ force: true }); 
-    await page.waitForTimeout(1500); // アニメーション待機
+    await page.waitForTimeout(1500); 
 
     console.log(`  - メニュー（...）ボタンをクリックします。`);
     try {
-        // ホバーで出現した「beyondページ複製」のテキストを目印にする
         const copyBtnText = page.getByText(/beyond(?:page|ページ)複製/i).last();
         await copyBtnText.waitFor({ state: 'visible', timeout: 3000 });
         
-        // そのテキストを囲んでいるボタングループ（親要素）を取得
         const btnGroup = copyBtnText.locator('xpath=ancestor::*[button or @role="button"][1]');
         const actionBtns = btnGroup.locator('button, [role="button"]');
         const count = await actionBtns.count();
         
         if (count >= 2) {
-            // 画像の並び通り、一番右(設定)の左隣が(...)ボタンなので、後ろから2番目を押す
             await actionBtns.nth(count - 2).click();
         } else {
             await actionBtns.last().click();
@@ -296,23 +300,29 @@ const axios = require('axios');
     await page.waitForTimeout(3000);
 
     // =========================================================
-    // [Step 6] 複製設定の入力（フォルダ内直接検索対応）
+    // ★大改修: [Step 6] 複製設定の入力（新UI単一モーダル対応）
     // =========================================================
-    console.log(`\n[Step 6] 新規複製ウィザードを進めます。`);
+    console.log(`\n[Step 6] 新規複製ウィザードを進めます（新UI対応）。`);
 
     const activeModal = page.locator('div[role="dialog"]').last();
 
-    console.log(`  - チームを「現在のチーム内」に設定します。`);
-    await activeModal.locator('button[role="combobox"]').first().click();
-    await page.waitForTimeout(500);
+    console.log(`  - 1.複製先チームを「現在のチーム内」に設定します。`);
+    const teamDropdownTrigger = activeModal.getByText(/選択してください|現在のチーム内/).first();
+    await teamDropdownTrigger.click({ force: true });
+    await page.waitForTimeout(1000);
     await page.getByText('現在のチーム内', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
-    console.log(`  - 検索窓にグループ「${groupListDest}」を入力します。`);
-    const modalFolderSearch = activeModal.locator('input[type="text"]').first();
-    await modalFolderSearch.click();
+    console.log(`  - 2.複製先フォルダを選択します。`);
+    const folderDropdownTrigger = activeModal.getByText('フォルダを選択...').first();
+    await folderDropdownTrigger.click({ force: true });
+    await page.waitForTimeout(1000);
+
+    console.log(`  - 検索窓にフォルダ名「${destFolder}」を入力します。`);
+    const modalFolderSearch = page.locator('input[type="text"]').filter({ state: 'visible' }).last();
+    await modalFolderSearch.click({ force: true });
     await modalFolderSearch.fill('');
-    await modalFolderSearch.pressSequentially(groupListDest, { delay: 50 });
+    await modalFolderSearch.pressSequentially(destFolder, { delay: 50 });
     await page.waitForTimeout(2000);
 
     console.log(`  - 検索結果からグループ「${groupListDest}」をクリックして展開します。`);
@@ -331,42 +341,37 @@ const axios = require('axios');
     await folderTarget.click();
     await page.waitForTimeout(1000);
 
-    await activeModal.getByText('次へ', { exact: true }).last().click();
-    await page.waitForTimeout(1000);
-
+    console.log(`  - 3.配信URLを設定します。`);
     if (deliveryUrl) {
-      console.log(`  - 配信URL設定を入力します: ${deliveryUrl}`);
-      const deliveryInput = activeModal.getByPlaceholder('半角英数字, -, _ が使えます').last();
-      await deliveryInput.fill('');
-      await deliveryInput.pressSequentially(deliveryUrl, { delay: 50 });
-      await page.waitForTimeout(1000);
+        console.log(`    => 配信URLを入力: ${deliveryUrl}`);
+        const deliveryInput = activeModal.locator('input[placeholder*="半角英数字"]').last();
+        if (await deliveryInput.isVisible().catch(() => false)) {
+            await deliveryInput.fill('');
+            await deliveryInput.pressSequentially(deliveryUrl, { delay: 50 });
+            await page.waitForTimeout(1000);
+        }
+    }
+
+    console.log(`  - 「設定確認」を押します。`);
+    const confirmBtn = activeModal.getByText('設定確認', { exact: true }).last();
+    try {
+        await confirmBtn.evaluate(b => b.click());
+    } catch (e) {
+        await confirmBtn.click({ force: true });
+    }
+    await page.waitForTimeout(2000);
+
+    console.log(`  - 「この内容でページを複製する」をクリックします。`);
+    const finalCopyBtn = page.getByText('この内容でページを複製する', { exact: true }).last();
+    await finalCopyBtn.waitFor({ state: 'attached', timeout: 5000 }).catch(()=>{}); 
+    try {
+        await finalCopyBtn.evaluate(b => b.click());
+    } catch (e) {
+        await finalCopyBtn.click({ force: true });
     }
     
-    await activeModal.getByText('保存して次へ', { exact: true }).last().click();
-    await page.waitForTimeout(1000);
-
-    await activeModal.getByText('次へ', { exact: true }).last().click();
-    await page.waitForTimeout(1000);
-
-    await activeModal.getByText('次へ', { exact: true }).last().click();
-    await page.waitForTimeout(1000);
-
-    await activeModal.getByText('次へ', { exact: true }).last().click();
-    await page.waitForTimeout(1000);
-
-    await activeModal.getByText('置換せずスキップ', { exact: true }).last().click();
-    await page.waitForTimeout(1000);
-
-    await activeModal.getByText('設定確認', { exact: true }).last().click();
-    await page.waitForTimeout(1000);
-
-    const finalCopyBtn = activeModal.getByText('この内容でページを複製する', { exact: true }).last();
-    await finalCopyBtn.click();
-    console.log(`  => ⏳ 複製処理の完了を待機しています...`);
-    
-    await finalCopyBtn.waitFor({ state: 'hidden', timeout: 30000 }).catch(() => {});
-    console.log(`  => ✅ 複製完了！`);
-    await page.waitForTimeout(5000); 
+    console.log(`  => ⏳ 複製処理の完了を待機しています... (10秒)`);
+    await page.waitForTimeout(10000); 
 
     await page.screenshot({ path: 'final-check.png', fullPage: true });
 

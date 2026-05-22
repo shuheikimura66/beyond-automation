@@ -163,16 +163,27 @@ const axios = require('axios');
     await page.waitForTimeout(5000);
 
     // =========================================================
-    // [Step 3] 新UIでの記事検索とメニュー展開
+    // ★大改修: [Step 3] 新UIでの記事検索
     // =========================================================
     console.log(`\n[Step 3] フォルダ内で記事「${sourceArticle}」を検索します。`);
     
-    const folderSearchInput = page.getByPlaceholder('フォルダ内検索').first();
-    if (await folderSearchInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+    // ①「フォルダ内検索」のテキストを押して入力欄を出現させる
+    console.log(`  - 「フォルダ内検索」ボタンをクリックします。`);
+    const folderSearchBtn = page.getByText('フォルダ内検索', { exact: true }).first();
+    if (await folderSearchBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await folderSearchBtn.click();
+        await page.waitForTimeout(1000);
+    }
+
+    // ②出現した「〇〇内を検索...」の入力欄を部分一致で捉える
+    console.log(`  - 検索窓に記事名を入力します。`);
+    const folderSearchInput = page.locator('input[placeholder*="内を検索"]').first();
+    if (await folderSearchInput.isVisible().catch(() => false)) {
         await folderSearchInput.click();
         await folderSearchInput.fill('');
         await folderSearchInput.pressSequentially(sourceArticle, { delay: 50 });
     } else {
+        // 万が一見つからない場合はショートカットキーで代用
         await page.keyboard.press('Control+F');
         await page.keyboard.press('Meta+F');
         await page.waitForTimeout(500);
@@ -296,13 +307,9 @@ const axios = require('axios');
         console.log(`    ⚠️ ページ名の入力欄が見つかりませんでした。`);
     }
 
-    // =========================================================
-    // ★大改修：JSの力で物理的な見切れを完全無視して強制クリック！
-    // =========================================================
     console.log(`  - 「設定確認」を押します。`);
     const confirmBtn = activeModal.getByText('設定確認', { exact: true }).last();
     try {
-        // Javascriptで直接発火させる（最強の魔法）
         await confirmBtn.evaluate(b => b.click());
     } catch (e) {
         await confirmBtn.click({ force: true });
@@ -311,10 +318,8 @@ const axios = require('axios');
 
     console.log(`  - 「この内容でページを複製する」をクリックします。`);
     const finalCopyBtn = page.getByText('この内容でページを複製する', { exact: true }).last();
-    // ボタンがDOM上に存在することだけを待機する（見えていなくてもOK）
     await finalCopyBtn.waitFor({ state: 'attached', timeout: 5000 }).catch(()=>{}); 
     try {
-        // ここもJavascriptの力で強制クリック！
         await finalCopyBtn.evaluate(b => b.click());
     } catch (e) {
         await finalCopyBtn.click({ force: true });
@@ -344,12 +349,20 @@ const axios = require('axios');
     await page.waitForTimeout(5000);
 
     // =========================================================
-    // [Step 7] 複製された記事の検索とURLコピー
+    // ★大改修: [Step 7] 複製された記事の検索とURLコピー
     // =========================================================
     console.log(`\n[Step 7] 複製されたページ「${newArticleName}」を検索してURLをコピーします。`);
     
-    const destSearchInput = page.getByPlaceholder('フォルダ内検索').first();
-    if (await destSearchInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+    // ここもStep3と同じく新UIの検索方式を適用
+    console.log(`  - 「フォルダ内検索」ボタンをクリックします。`);
+    const destSearchBtn = page.getByText('フォルダ内検索', { exact: true }).first();
+    if (await destSearchBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await destSearchBtn.click();
+        await page.waitForTimeout(1000);
+    }
+
+    const destSearchInput = page.locator('input[placeholder*="内を検索"]').first();
+    if (await destSearchInput.isVisible().catch(() => false)) {
         await destSearchInput.click();
         await destSearchInput.fill('');
         await destSearchInput.pressSequentially(newArticleName, { delay: 50 });

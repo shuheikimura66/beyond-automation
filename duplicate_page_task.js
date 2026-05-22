@@ -220,7 +220,7 @@ const axios = require('axios');
     await page.waitForTimeout(3000);
 
     // =========================================================
-    // ★大改修: [Step 5] 複製設定の入力（新UI単一モーダル対応）
+    // [Step 5] 複製設定の入力（新UI単一モーダル対応）
     // =========================================================
     console.log(`\n[Step 5] 新規複製ウィザードを進めます（新UI対応）。`);
 
@@ -296,17 +296,29 @@ const axios = require('axios');
         console.log(`    ⚠️ ページ名の入力欄が見つかりませんでした。`);
     }
 
-    // ★今回の超重要ポイント：見切れていても強制的にクリックさせる（force: true）
+    // =========================================================
+    // ★大改修：JSの力で物理的な見切れを完全無視して強制クリック！
+    // =========================================================
     console.log(`  - 「設定確認」を押します。`);
     const confirmBtn = activeModal.getByText('設定確認', { exact: true }).last();
-    await confirmBtn.click({ force: true }); // 強制クリックを付与
+    try {
+        // Javascriptで直接発火させる（最強の魔法）
+        await confirmBtn.evaluate(b => b.click());
+    } catch (e) {
+        await confirmBtn.click({ force: true });
+    }
     await page.waitForTimeout(2000);
 
     console.log(`  - 「この内容でページを複製する」をクリックします。`);
-    // activeModalからではなく、ページ全体から探す（画面が切り替わっている可能性があるため）
     const finalCopyBtn = page.getByText('この内容でページを複製する', { exact: true }).last();
-    await finalCopyBtn.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{}); // エラーを出さずに待機
-    await finalCopyBtn.click({ force: true }); // 見切れていても強制クリックを付与
+    // ボタンがDOM上に存在することだけを待機する（見えていなくてもOK）
+    await finalCopyBtn.waitFor({ state: 'attached', timeout: 5000 }).catch(()=>{}); 
+    try {
+        // ここもJavascriptの力で強制クリック！
+        await finalCopyBtn.evaluate(b => b.click());
+    } catch (e) {
+        await finalCopyBtn.click({ force: true });
+    }
     
     console.log(`  => ⏳ 複製処理の完了を待機しています...`);
     

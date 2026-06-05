@@ -172,14 +172,27 @@ const axios = require('axios');
     // =========================================================
     console.log(`\n[Step 2.5] 作成したフォルダを「${destFolder}」に名称変更します。`);
 
-    // メインエリアをクリックして編集アイコンを表示
+    // ダイアログが完全に閉じるまで待つ
+    await page.locator('div[role="dialog"]').waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(3000);
+
+    // メインエリアをクリック
     await page.locator('div.css-1j0md7x').click().catch(() => {});
     await page.waitForTimeout(500);
-    await page.locator('div.efy50tl7 path').click().catch(() => {});
-    await page.waitForTimeout(500);
 
-    // サイドバー検索でコピー先グループを検索
-    const sidebarInput = page.locator('[data-testid="side-menu"] input').first();
+    // 検索アイコンをクリックしてサイドバーinputを表示（pathではなく親divを対象に）
+    await page.locator('div.efy50tl7').click().catch(() => {});
+    await page.waitForTimeout(1000);
+
+    // サイドバー検索inputを複数セレクターでフォールバック検索
+    let sidebarInput;
+    const sideMenuInput = page.locator('[data-testid="side-menu"] input').first();
+    const bh9qlInput = page.locator('div.css-bh9ql4 input').first();
+    if (await sideMenuInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+      sidebarInput = sideMenuInput;
+    } else {
+      sidebarInput = bh9qlInput;
+    }
     await sidebarInput.click();
     await sidebarInput.fill(groupListDest);
     await page.waitForTimeout(2000);

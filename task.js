@@ -129,14 +129,16 @@ const axios = require('axios');
     await page.getByText('独自ドメイン', { exact: true }).click();
     await page.waitForTimeout(500);
 
-    // 次へボタン（div.css-e0dnmk 内のボタン）
-    await page.locator('div.css-e0dnmk button').click();
+    // 「独自ドメインを選択する」comboboxをクリックしてドロップダウンを開く
+    await page.getByRole('combobox').filter({ hasText: '独自ドメインを選択する' }).click();
     await page.waitForTimeout(500);
 
-    // 旧: comboboxで検索して選択 / 新: inputフィールドに直接入力
+    // ドメインを入力して絞り込み
     console.log(`  - ドメイン「${domain}」を入力します。`);
     await page.locator('input').last().fill(domain);
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1000);
+
+    // ドロップダウンからドメインを選択
     await page.locator('div.css-1vn620w').click();
     await page.waitForTimeout(1000);
 

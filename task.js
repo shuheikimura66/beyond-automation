@@ -177,16 +177,42 @@ const axios = require('axios');
     await page.waitForTimeout(2000);
 
     // ページメニューを再クリックしてページ一覧ビューに確実に戻る
-    // （フォルダ作成後に別ビューにいる場合があるため）
     console.log(`  - ページ一覧ビューに戻ります。`);
     await page.locator('[data-testid="list-menu-item"]').nth(2).click();
     await page.waitForTimeout(3000);
+    await page.waitForLoadState('load');
 
-    // サイドバー検索inputに入力（div.css-bh9ql4 input）
-    const sidebarInput = page.locator('div.css-bh9ql4 input').first();
-    await sidebarInput.waitFor({ state: 'visible', timeout: 10000 });
-    await sidebarInput.click();
-    await sidebarInput.fill(groupListDest);
+    // サイドバー検索inputを有効化する
+    // → 検索inputはトグルボタンを押すまで非表示のため、ボタンを探してクリック
+    console.log(`  - サイドバー検索を有効化します。`);
+    const searchInput = page.locator('[data-testid="side-menu"] input').first();
+
+    if (!(await searchInput.isVisible({ timeout: 1500 }).catch(() => false))) {
+      // 方法1: xpathで検索トグルアイコンをクリック（JSON録画から取得した構造）
+      await page.locator('xpath=//*[@id="root"]/div[2]/div/div[2]/div/div[2]/div/div[1]/div[2]').click().catch(() => {});
+      await page.waitForTimeout(800);
+    }
+
+    if (!(await searchInput.isVisible({ timeout: 1500 }).catch(() => false))) {
+      // 方法2: 生成クラス名でクリック
+      await page.locator('div.efy50tl7').click().catch(() => {});
+      await page.waitForTimeout(800);
+    }
+
+    if (!(await searchInput.isVisible({ timeout: 1500 }).catch(() => false))) {
+      // 方法3: side-menu内のbuttonを順番に試す
+      console.log(`  - side-menu内のボタンを順に試します。`);
+      const btns = page.locator('[data-testid="side-menu"] button');
+      const count = await btns.count().catch(() => 0);
+      for (let i = 0; i < Math.min(count, 5); i++) {
+        await btns.nth(i).click().catch(() => {});
+        await page.waitForTimeout(600);
+        if (await searchInput.isVisible({ timeout: 500 }).catch(() => false)) break;
+      }
+    }
+
+    await searchInput.waitFor({ state: 'visible', timeout: 8000 });
+    await searchInput.fill(groupListDest);
     await page.waitForTimeout(2000);
 
     // 最初の結果（新しいフォルダ）の3ドットボタンをクリック

@@ -93,7 +93,7 @@ locator.click: Timeout 30000ms exceeded.
 
 ---
 
-## [2026-06-05] #006 — Step 2.5 サイドバー検索input `[data-testid="side-menu"] input` が見つからない
+## [2026-06-05] #006 — Step 2.5 サイドバー検索input が見つからない（第1報）
 
 **エラー内容**
 ```
@@ -103,8 +103,29 @@ locator.click: Timeout 30000ms exceeded.
 ```
 
 **原因**
-フォルダ作成後、ページが別ビュー（作成確認画面など）に遷移しており、サイドバー検索が存在しない状態だった。
-`div.efy50tl7` のクリックが `.catch(() => {})` で無音スキップされ、サイドバーのsearchが有効化されなかった。
+フォルダ作成後、ページが別ビューに遷移しており、サイドバー検索が存在しない状態だった。
+
+**修正（暫定）**
+ページメニューを再クリックして一覧ビューに戻す処理を追加。`div.css-bh9ql4 input` の `waitFor` でinput出現を待機。
+
+---
+
+## [2026-06-05] #007 — Step 2.5 サイドバー検索input が見つからない（第2報）
+
+**エラー内容**
+```
+locator.waitFor: Timeout 10000ms exceeded.
+- waiting for locator('div.css-bh9ql4 input').first() to be visible
+```
+
+**原因**
+サイドバーの検索inputは**検索トグルボタンを押すまで非表示**になっている。
+ページ一覧ビューに戻るだけでは不十分で、検索アイコンをクリックしてinputを表示させる必要があった。
+旧コードの `div.efy50tl7` クリックはCSSクラス変更で無効化されており、`.catch(() => {})` で無音スキップされていた。
 
 **修正**
-ページメニューアイコン（`[data-testid="list-menu-item"] nth(2)`）を再クリックしてページ一覧ビューに確実に戻る処理を追加。その後 `div.css-bh9ql4 input` の `waitFor` でinput出現を待機。
+3段階フォールバックで検索トグルをクリック：
+1. xpath構造でトグルアイコンをクリック（`//*[@id="root"]/div[2]/div/div[2]/div/div[2]/div/div[1]/div[2]`）
+2. 生成クラス名 `div.efy50tl7` でクリック
+3. `[data-testid="side-menu"] button` を最大5個順にクリック
+いずれかでinputが現れたら処理を続行。

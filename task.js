@@ -121,16 +121,15 @@ const axios = require('axios');
     await page.getByText('フォルダ作成...', { exact: true }).click();
     await page.waitForTimeout(1000);
 
-    // 旧: "登録済みドメインから選択" → combobox
-    // 新: ラジオボタンで「独自ドメイン」を直接選択
+    // 新: ラジオボタンで「独自ドメイン」を選択（1回だけクリック）
     console.log(`  - 「独自ドメイン」を選択します。`);
-    await page.locator('section:nth-of-type(2) > div.css-xmxo2q > div:nth-of-type(1) label').click();
-    await page.waitForTimeout(300);
     await page.getByText('独自ドメイン', { exact: true }).click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1500); // comboboxが有効になるまで待機
 
-    // 「独自ドメインを選択する」comboboxをクリックしてドロップダウンを開く
-    await page.getByRole('combobox').filter({ hasText: '独自ドメインを選択する' }).click();
+    // 「独自ドメインを選択する」comboboxが有効になったらクリック
+    const domainCombobox = page.getByRole('combobox').filter({ hasText: '独自ドメインを選択する' });
+    await domainCombobox.waitFor({ state: 'visible' });
+    await domainCombobox.click();
     await page.waitForTimeout(500);
 
     // ドメインを入力して絞り込み

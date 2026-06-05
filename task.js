@@ -137,15 +137,19 @@ const axios = require('axios');
     await page.locator('input').last().fill(domain);
     await page.waitForTimeout(1000);
 
-    // ドロップダウンからドメインを選択（modal-overlayが前面にあるためforce指定）
-    await page.locator('div.css-1vn620w').click({ force: true });
+    // ドロップダウンから一致するドメインを選択して確定
+    await page.getByText(domain, { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
-    // 旧: combobox "指定しない" → option選択
-    // 新: inputにグループ名を入力してリストから選択
+    // div.css-1vn620w はグループ選択を開くトリガーボタン（forceなし）
+    console.log(`  - グループ選択を開きます。`);
+    await page.locator('div.css-1vn620w').click();
+    await page.waitForTimeout(1000);
+
+    // グループのポップオーバーが開いたらinputが現れるので入力
     console.log(`  - グループ「${groupListDest}」を入力して選択します。`);
     const groupInput = page.locator('input').last();
-    await groupInput.click();
+    await groupInput.waitFor({ state: 'visible', timeout: 5000 });
     await groupInput.fill(groupListDest);
     await page.waitForTimeout(1000);
     await page.getByText(groupListDest, { exact: true }).last().click();

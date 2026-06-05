@@ -137,8 +137,8 @@ const axios = require('axios');
     await page.locator('input').last().fill(domain);
     await page.waitForTimeout(1000);
 
-    // ドロップダウンからドメインを選択
-    await page.locator('div.css-1vn620w').click();
+    // ドロップダウンからドメインを選択（modal-overlayが前面にあるためforce指定）
+    await page.locator('div.css-1vn620w').click({ force: true });
     await page.waitForTimeout(1000);
 
     // 旧: combobox "指定しない" → option選択

@@ -126,7 +126,7 @@ const axios = require('axios');
     console.log(`  - 「独自ドメイン」を選択します。`);
     await page.locator('section:nth-of-type(2) > div.css-xmxo2q > div:nth-of-type(1) label').click();
     await page.waitForTimeout(300);
-    await page.getByText('独自ドメイン').click();
+    await page.getByText('独自ドメイン', { exact: true }).click();
     await page.waitForTimeout(500);
 
     // 次へボタン（div.css-e0dnmk 内のボタン）

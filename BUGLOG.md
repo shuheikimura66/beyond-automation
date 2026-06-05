@@ -110,6 +110,24 @@ locator.click: Timeout 30000ms exceeded.
 
 ---
 
+## [2026-06-05] #008 — Step 1.5 `[data-testid="list-menu-item"] nth(2)` タイムアウト
+
+**エラー内容**
+```
+locator.click: Timeout 30000ms exceeded.
+- waiting for locator('[data-testid="list-menu-item"]').nth(2)
+```
+
+**原因**
+Step 1.2 でログイン画面が表示されなかったケースで、フルアウト選択後にページが不完全な状態のまま。
+ナビゲーションアイテムが3つ揃う前にクリックしようとしてタイムアウト。
+
+**修正**
+- `waitForLoadState('networkidle')` で通信が落ち着くまで待機
+- `nth(2).waitFor({ state: 'visible', timeout: 20000 })` でクリック前に要素の出現を明示的に確認
+
+---
+
 ## [2026-06-05] #007 — Step 2.5 サイドバー検索input が見つからない（第2報）
 
 **エラー内容**

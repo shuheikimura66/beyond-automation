@@ -103,6 +103,9 @@ const axios = require('axios');
     // 新: data-testid="list-menu-item" の3番目をクリック
     // =========================================================
     console.log(`\n[Step 1.5] 「ページ」メニューをクリックします。`);
+    // ナビゲーションが揃うまで待機してからクリック
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.locator('[data-testid="list-menu-item"]').nth(2).waitFor({ state: 'visible', timeout: 20000 });
     await page.locator('[data-testid="list-menu-item"]').nth(2).click();
     await page.waitForTimeout(3000);
     await page.waitForLoadState('load');

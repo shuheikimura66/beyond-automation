@@ -174,25 +174,17 @@ const axios = require('axios');
 
     // ダイアログが完全に閉じるまで待つ
     await page.locator('div[role="dialog"]').waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(2000);
+
+    // ページメニューを再クリックしてページ一覧ビューに確実に戻る
+    // （フォルダ作成後に別ビューにいる場合があるため）
+    console.log(`  - ページ一覧ビューに戻ります。`);
+    await page.locator('[data-testid="list-menu-item"]').nth(2).click();
     await page.waitForTimeout(3000);
 
-    // メインエリアをクリック
-    await page.locator('div.css-1j0md7x').click().catch(() => {});
-    await page.waitForTimeout(500);
-
-    // 検索アイコンをクリックしてサイドバーinputを表示（pathではなく親divを対象に）
-    await page.locator('div.efy50tl7').click().catch(() => {});
-    await page.waitForTimeout(1000);
-
-    // サイドバー検索inputを複数セレクターでフォールバック検索
-    let sidebarInput;
-    const sideMenuInput = page.locator('[data-testid="side-menu"] input').first();
-    const bh9qlInput = page.locator('div.css-bh9ql4 input').first();
-    if (await sideMenuInput.isVisible({ timeout: 3000 }).catch(() => false)) {
-      sidebarInput = sideMenuInput;
-    } else {
-      sidebarInput = bh9qlInput;
-    }
+    // サイドバー検索inputに入力（div.css-bh9ql4 input）
+    const sidebarInput = page.locator('div.css-bh9ql4 input').first();
+    await sidebarInput.waitFor({ state: 'visible', timeout: 10000 });
     await sidebarInput.click();
     await sidebarInput.fill(groupListDest);
     await page.waitForTimeout(2000);

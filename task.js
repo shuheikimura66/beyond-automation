@@ -259,6 +259,11 @@ const axios = require('axios');
     // =========================================================
     console.log(`\n[Step 5] 「別フォルダへ複製」を選択します。`);
 
+    // 記事行にhoverしてoption-iconを出現させてからクリック
+    const articleItem = page.getByText(sourceArticle, { exact: true }).first();
+    await articleItem.waitFor({ state: 'visible', timeout: 10000 });
+    await articleItem.hover();
+    await page.waitForTimeout(500);
     await page.locator('[data-testid="option-icon"]').first().click();
     await page.waitForTimeout(500);
 

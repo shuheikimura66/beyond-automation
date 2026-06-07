@@ -297,3 +297,24 @@ Step 6のフォルダクリック `div.css-d3v9zr div.css-79rqsy` も同様に�
 **修正（Chrome DevTools Recorder 録画 0607_1.json から取得）**
 - Step 5: `button.css-16dhtfm` → `[data-testid="option-icon"]`（data-testid属性で安定）
 - Step 6 フォルダクリック: `div.css-d3v9zr div.css-79rqsy` → `[data-testid="list-menu-item"].filter(destFolder) > div:nth-of-type(2)`
+
+---
+
+## [2026-06-07] #017 — Step 5 `[data-testid="option-icon"]` が表示されずタイムアウト
+
+**エラー内容**
+エラーログ取得不可（ネットワーク障害）。スクリーンショットから `option-icon` が記事行に表示されていない状態を確認。
+
+**原因**
+`[data-testid="option-icon"]` は記事行をホバーするまでDOMに存在しない（または `display: none`）hover-to-reveal型のUI。
+ホバーなしに `locator.click()` を呼んでも要素が見つからずタイムアウト。
+
+**修正**
+`page.locator('[data-testid="option-icon"]').first().click()` の前に、記事テキストへの `.hover()` を追加：
+```js
+const articleItem = page.getByText(sourceArticle, { exact: true }).first();
+await articleItem.waitFor({ state: 'visible', timeout: 10000 });
+await articleItem.hover();
+await page.waitForTimeout(500);
+await page.locator('[data-testid="option-icon"]').first().click();
+```

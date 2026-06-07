@@ -205,6 +205,7 @@ const axios = require('axios');
       await urlInput.waitFor({ state: 'visible', timeout: 5000 });
       await urlInput.click();
       await urlInput.fill(deliveryUrl);
+      await page.keyboard.press('Tab'); // blur してバリデーション確定（録画のコンテナクリックと同等）
       await page.waitForTimeout(500);
     }
 

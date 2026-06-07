@@ -233,22 +233,57 @@ const axios = require('axios');
     await page.getByText('この内容でページを複製する', { exact: true }).last().click();
 
     // =========================================================
-    // [Step 6] 複製完了待機 → URL生成 → GAS送信
+    // [Step 6] 複製完了待機 → 複製記事を開いてURLをコピー取得 → GAS送信
+    // 録画 2.json: destFolder検索 → クリック → 記事クリック → コピーボタン → clipboard取得
     // =========================================================
     console.log(`  => ⏳ 複製処理の完了を待機しています... (10秒)`);
     await page.waitForTimeout(10000);
 
-    console.log(`\n[Step 6] 入稿用URLの生成を行います。`);
-    const domainMatch = destFolder.match(/[（(]([^）)]+)[）)]/);
-    let extractedDomain = '';
-    if (domainMatch && domainMatch[1]) {
-      extractedDomain = domainMatch[1].trim();
-    } else {
-      console.log(`  ⚠️ フォルダ名からドメインを抽出できませんでした。`);
+    console.log(`\n[Step 6] 複製されたページのURLを取得します。`);
+
+    // /folders へ移動（検索パネルを使って destFolder を開く）
+    await page.goto('https://app.squadbeyond.com/folders');
+    await page.waitForLoadState('load');
+    await page.waitForTimeout(2000);
+
+    // 検索パネルが閉じていれば開く
+    const sideInputForUrl = page.locator('xpath=//*[@data-testid="side-menu"]/div[1]/div[1]/div/div/label/input');
+    if (!(await sideInputForUrl.isVisible({ timeout: 1500 }).catch(() => false))) {
+      await page.getByRole('button', { name: /^検索$/ }).first().click();
+      await page.waitForTimeout(800);
     }
 
-    const finalUrl = extractedDomain ? `https://${extractedDomain}/ab/${deliveryUrl}` : '';
-    console.log(`  => 🎉 生成したURL: ${finalUrl}`);
+    // destFolder を検索して開く
+    console.log(`  - 複製先フォルダ「${destFolder}」を検索します。`);
+    await sideInputForUrl.fill(destFolder);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(2000);
+
+    await page.locator('[data-testid="list-menu-item"]')
+      .filter({ hasText: destFolder }).first()
+      .locator('div:nth-of-type(2)').click();
+    await page.waitForTimeout(3000);
+
+    // 複製された記事をクリックして右パネル（詳細）を開く
+    console.log(`  - 複製記事「${newArticleName}」をクリックして詳細パネルを開きます。`);
+    const dupArticleItem = page.getByText(newArticleName, { exact: true }).first();
+    if (await dupArticleItem.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await dupArticleItem.click();
+      await page.waitForTimeout(1500);
+    } else {
+      console.log(`  ⚠️ 記事名が見つからないため最初の記事を使用します。`);
+      await page.locator('[data-testid="list-menu-item"]').first().click();
+      await page.waitForTimeout(1500);
+    }
+
+    // URLコピーボタンをクリック（録画: aria/コピー[role="button"]）
+    console.log(`  - URLコピーボタンをクリックします。`);
+    await page.getByRole('button', { name: 'コピー' }).first().click();
+    await page.waitForTimeout(500);
+
+    // クリップボードからURL取得
+    const finalUrl = await page.evaluate(() => navigator.clipboard.readText());
+    console.log(`  => 🎉 取得したURL: ${finalUrl}`);
 
     if (gasUrl) {
       await axios.post(gasUrl, { row_idx: rowIdx, entry_url: finalUrl, status: 'success', task_type: 'duplicate' });

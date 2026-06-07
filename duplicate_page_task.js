@@ -276,18 +276,14 @@ const axios = require('axios');
     await page.locator('div.css-68s747 input').first().fill(newArticleName);
     await page.waitForTimeout(3000);
 
-    // 記事にhoverして編集ボタンを出現させる
-    console.log(`  - 記事「${newArticleName}」にhoverして編集ボタンを出現させます。`);
-    const newArticleItem = page.getByText(newArticleName, { exact: true }).first();
-    await newArticleItem.waitFor({ state: 'visible', timeout: 10000 });
-    await newArticleItem.hover();
-    await page.waitForTimeout(500);
-
-    // 記事名の右の編集ボタンをクリック
-    // option-icon（三点メニュー）ではなく、hover時に出現する直接の編集アイコンボタン
-    console.log(`  - 記事名の右の編集ボタンをクリックします。`);
-    await page.locator('[data-testid="edit-icon"]').first().click();
-    await page.waitForTimeout(2000);
+    // 記事行を特定して右側エリアをクリック → 右サイドパネルを開く
+    // 録画 3.json: list-menu-item の div/div/div[2]/div[1]/div[1] が右パネルを開くトリガー
+    console.log(`  - 記事「${newArticleName}」の右側をクリックして右サイドパネルを開きます。`);
+    const targetArticleRow = page.locator('[data-testid="list-menu-item"]')
+      .filter({ hasText: newArticleName }).first();
+    await targetArticleRow.waitFor({ state: 'visible', timeout: 10000 });
+    await targetArticleRow.locator('xpath=div/div/div[2]/div[1]/div[1]').click();
+    await page.waitForTimeout(1500);
 
     // URLコピーボタンをクリック
     console.log(`  - URLコピーボタンをクリックします。`);

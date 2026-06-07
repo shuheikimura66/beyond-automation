@@ -183,29 +183,27 @@ const axios = require('axios');
     await page.getByText(groupListDest, { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
-    // destFolderクリック（list-menu-item本体 = 録画通り）
+    // destFolderクリック（録画 1.json: div[2] = テキスト部分）
     console.log(`  - フォルダ「${destFolder}」をクリックします。`);
     await page.locator('[data-testid="list-menu-item"]')
-      .filter({ hasText: destFolder }).last().click();
+      .filter({ hasText: destFolder }).last()
+      .locator('div:nth-of-type(2)').click();
     await page.waitForTimeout(1000);
 
-    // --- 配信URL（「配信URL」タブを明示的に開いてから入力） ---
-    // 録画: URL tabはデフォルト左タブだが、ヘッドレスでは明示的にクリックが必要な場合がある
-    console.log(`  - 3. 「配信URL」タブをクリックします。`);
-    const urlTab = page.getByText('配信URL').first();
-    if (await urlTab.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await urlTab.click();
-      await page.waitForTimeout(500);
-    }
+    // --- 配信URLタブを開く ---
+    // 録画 1.json: タブ trigger の span（text: ⚠️後から変更できません）をクリックして展開
+    // ※ 「配信URL」テキストではなく ⚠️スパンがRadix UIのaccordion trigger
+    console.log(`  - 3. 「⚠️後から変更できません」をクリックしてURLタブを開きます。`);
+    await page.getByText('⚠️後から変更できません').click();
+    await page.waitForTimeout(500);
 
     if (deliveryUrl) {
       console.log(`  - 配信URL「${deliveryUrl}」を入力します。`);
-      // waitForで確実に表示されてから入力
       const urlInput = activeModal.locator('section:nth-of-type(3) input').first();
       await urlInput.waitFor({ state: 'visible', timeout: 5000 });
       await urlInput.click();
       await urlInput.fill(deliveryUrl);
-      await page.keyboard.press('Tab'); // blur してバリデーション確定（録画のコンテナクリックと同等）
+      await page.keyboard.press('Tab'); // blur してバリデーション確定
       await page.waitForTimeout(500);
     }
 
@@ -225,8 +223,12 @@ const axios = require('axios');
     await pageNameInput.fill(newArticleName);
     await page.waitForTimeout(500);
 
-    // --- 複製実行（録画: 設定確認なし → 直接「この内容でページを複製する」）---
-    // ※ beyondページ複製ダイアログでは設定確認ステップが不要（録画0607_10.json確認済み）
+    // --- 設定確認（録画 1.json 確認済み: beyondページ複製でも必要）---
+    console.log(`  - 「設定確認」をクリックします。`);
+    await page.getByText('設定確認', { exact: true }).last().click();
+    await page.waitForTimeout(2000);
+
+    // --- 複製実行 ---
     console.log(`  - 「この内容でページを複製する」をクリックします。`);
     await page.getByText('この内容でページを複製する', { exact: true }).last().click();
 

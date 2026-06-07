@@ -243,3 +243,21 @@ Chrome DevTools Recorderで実際の操作を録画した結果（beyond.json）
 - ページ戻りをクリック操作から `page.goto('/folders')` に変更（安定性向上）
 - side-menu検索inputをRecorder録画のXPathで直接指定
 - 3ドットボタンもRecorder録画のXPathで直接指定
+
+---
+
+## [2026-06-07] #014 — /folders 遷移後、side-menu XPath inputが見つからない
+
+**エラー内容**
+```
+locator.waitFor: Timeout 10000ms exceeded.
+  - waiting for locator('//*[@data-testid="side-menu"]/div[1]/div[1]/div/div/label/input') to be visible
+```
+
+**原因**
+録画（beyond.json）は検索パネルが既に開いた状態から始まっていた。
+実際の /folders 画面では左上に「検索」ボタンがあり、クリックするとパネルが開いてinputが現れる。
+自動化ではそのクリックが抜けていたため、inputが存在しない状態だった。
+
+**修正**
+`page.getByRole('button', { name: /^検索$/ })` で検索ボタンを押してパネルを開いてから、XPath inputを使用。

@@ -147,3 +147,22 @@ locator.waitFor: Timeout 10000ms exceeded.
 2. 生成クラス名 `div.efy50tl7` でクリック
 3. `[data-testid="side-menu"] button` を最大5個順にクリック
 いずれかでinputが現れたら処理を続行。
+
+---
+
+## [2026-06-07] #009 — Step 2.5 サイドバー検索input が見つからない（第3報・3段階フォールバックも失敗）
+
+**エラー内容**
+```
+locator.waitFor: Timeout 8000ms exceeded.
+  - waiting for locator('[data-testid="side-menu"] input').first() to be visible
+    at task.js:217
+```
+
+**原因**
+#007 で追加した3段階フォールバック（XPath / `div.efy50tl7` / `[data-testid="side-menu"] button` 列挙）が全て失敗。
+UIの再変更でXPathもクラス名も無効になり、button列挙もsearchInputを表示できなかった。
+一方、Step 3 では `div.css-bh9ql4 input` をトグルなしで直接取得しており、こちらは問題なく動作する（Step 2.5失敗で到達できていないが構造的に正しい）。
+
+**修正**
+Step 2.5 のトグル起動ロジックを全廃し、Step 3 と同じセレクター `div.css-bh9ql4 input` で直接 `waitFor` → `click` → `fill` に変更。

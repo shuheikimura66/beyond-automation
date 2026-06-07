@@ -166,3 +166,23 @@ UIの再変更でXPathもクラス名も無効になり、button列挙もsearchI
 
 **修正**
 Step 2.5 のトグル起動ロジックを全廃し、Step 3 と同じセレクター `div.css-bh9ql4 input` で直接 `waitFor` → `click` → `fill` に変更。
+
+---
+
+## [2026-06-07] #010 — `div.css-bh9ql4 input` も存在せずStep 2.5/3 ともにタイムアウト
+
+**エラー内容**
+```
+locator.waitFor: Timeout 10000ms exceeded.
+  - waiting for locator('div.css-bh9ql4 input').first() to be visible
+    at task.js:191
+```
+
+**原因**
+`div.css-bh9ql4 input` もUIリニューアルで消滅。サイドバーに検索inputが存在しない新UIになった。
+Step 3 も同じセレクターを使用しており、Step 2.5 が失敗するため Step 3 には到達できていなかったが同様に失敗する状態だった。
+
+**修正**
+Step 2.5・Step 3 ともにサイドバー検索を完全廃止。
+- Step 2.5: `groupListDest` グループを `filter({ hasText })` で展開 → `新しいフォルダ` を直接 hover して3ドットボタン → 名称変更
+- Step 3: `groupListSource` を `filter({ hasText })` で直接クリックして展開（検索なし）

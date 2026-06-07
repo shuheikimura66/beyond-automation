@@ -185,18 +185,21 @@ const axios = require('axios');
     await page.waitForTimeout(3000);
     await page.waitForLoadState('load');
 
-    // サイドバー検索inputを取得して入力（Step3と同じセレクターを使用）
-    console.log(`  - サイドバー検索を有効化します。`);
-    const searchInput = page.locator('div.css-bh9ql4 input').first();
-    await searchInput.waitFor({ state: 'visible', timeout: 10000 });
-    await searchInput.click();
-    await page.keyboard.press('Control+A');
-    await searchInput.fill(groupListDest);
-    await page.waitForTimeout(2000);
+    // 検索は使わず「新しいフォルダ」をサイドバーで直接探す
+    console.log(`  - サイドバーから「新しいフォルダ」を直接探します。`);
 
-    // 最初の結果（新しいフォルダ）の3ドットボタンをクリック
-    const firstListItem = page.locator('[data-testid="list-menu-item"]').first();
-    await firstListItem.locator('button').last().click();
+    // groupListDestグループが折りたたまれていれば展開する
+    const destGroupItem = page.locator('[data-testid="list-menu-item"]').filter({ hasText: groupListDest }).first();
+    if (await destGroupItem.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await destGroupItem.click();
+      await page.waitForTimeout(1000);
+    }
+
+    // 「新しいフォルダ」を探して3ドットボタンをクリック
+    const newFolderItem = page.locator('[data-testid="list-menu-item"]').filter({ hasText: '新しいフォルダ' }).first();
+    await newFolderItem.waitFor({ state: 'visible', timeout: 10000 });
+    await newFolderItem.hover();
+    await newFolderItem.locator('button').last().click();
     await page.waitForTimeout(500);
 
     // 名称変更
@@ -214,15 +217,8 @@ const axios = require('axios');
     // =========================================================
     console.log(`\n[Step 3] 原本グループ「${groupListSource}」を検索します。`);
 
-    // 旧: getByText('検索') / 新: div.css-bh9ql4 input
-    const sideSearch = page.locator('div.css-bh9ql4 input').first();
-    await sideSearch.click();
-    await page.keyboard.press('Control+A');
-    await sideSearch.fill(groupListSource);
-    await page.waitForTimeout(2000);
-
-    // グループをクリックして展開
-    console.log(`  - 検索結果から「${groupListSource}」をクリックします。`);
+    // 検索不要 — サイドバーから直接グループをクリックして展開
+    console.log(`  - サイドバーから「${groupListSource}」を直接クリックします。`);
     await page.locator('[data-testid="list-menu-item"]')
       .filter({ hasText: groupListSource }).first().click();
     await page.waitForTimeout(1000);

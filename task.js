@@ -179,17 +179,26 @@ const axios = require('axios');
     await page.locator('div[role="dialog"]').waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {});
     await page.waitForTimeout(2000);
 
-    // ページメニューを再クリックしてページ一覧ビューに確実に戻る
-    console.log(`  - ページ一覧ビューに戻ります。`);
-    await page.locator('[data-testid="list-menu-item"]').nth(2).click();
-    await page.waitForTimeout(3000);
+    // /folders に直接移動してページ一覧ビューに確実に戻る（クリック操作よりも安定）
+    console.log(`  - /folders に移動してページ一覧ビューに戻ります。`);
+    await page.goto('https://app.squadbeyond.com/folders');
     await page.waitForLoadState('load');
+    await page.waitForTimeout(3000);
 
-    // メインコンテンツに「新しいフォルダ」が表示されているので右クリックで名称変更
-    console.log(`  - 「新しいフォルダ」を右クリックして名称変更メニューを開きます。`);
-    const newFolderText = page.getByText('新しいフォルダ', { exact: true }).first();
-    await newFolderText.waitFor({ state: 'visible', timeout: 10000 });
-    await newFolderText.click({ button: 'right' });
+    // side-menu内の検索input（label内）で「新しいフォルダ」を検索
+    // 録画XPath: //*[@data-testid="side-menu"]/div[1]/div[1]/div/div/label/input
+    console.log(`  - サイドメニュー検索で「新しいフォルダ」を検索します。`);
+    const sideMenuInput = page.locator('xpath=//*[@data-testid="side-menu"]/div[1]/div[1]/div/div/label/input');
+    await sideMenuInput.waitFor({ state: 'visible', timeout: 10000 });
+    await sideMenuInput.click();
+    await sideMenuInput.fill('新しいフォルダ');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(2000);
+
+    // 検索結果の3ドットボタンをクリック
+    // 録画XPath: //*[@data-testid="list-menu-item"]/div[3]/div/div[2]/button
+    console.log(`  - 3ドットボタンをクリックします。`);
+    await page.locator('xpath=//*[@data-testid="list-menu-item"]/div[3]/div/div[2]/button').first().click();
     await page.waitForTimeout(500);
 
     // 名称変更

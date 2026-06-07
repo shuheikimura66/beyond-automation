@@ -223,3 +223,23 @@ locator.waitFor: Timeout 10000ms exceeded.
 
 **修正**
 検索を完全に廃止。`page.getByText('新しいフォルダ', { exact: true })` を直接右クリックしてコンテキストメニュー「名称変更」を呼び出す方式に変更。
+
+---
+
+## [2026-06-07] #013 — 右クリックが機能しない、Chrome DevTools Recorder録画で正しい操作パスを特定
+
+**エラー内容**
+右クリックでコンテキストメニューが出ない（UIが右クリック非対応）。
+
+**原因・調査**
+Chrome DevTools Recorderで実際の操作を録画した結果（beyond.json）、正しい操作フローが判明：
+1. `page.goto('https://app.squadbeyond.com/folders')` で直接移動
+2. 検索inputは `[data-testid="side-menu"]/div[1]/div[1]/div/div/label/input`（label内にラップされていた）
+3. 「新しいフォルダ」を入力 → Enter
+4. 3ドットボタンは `[data-testid="list-menu-item"]/div[3]/div/div[2]/button`
+5. 「名称変更」をクリック
+
+**修正**
+- ページ戻りをクリック操作から `page.goto('/folders')` に変更（安定性向上）
+- side-menu検索inputをRecorder録画のXPathで直接指定
+- 3ドットボタンもRecorder録画のXPathで直接指定

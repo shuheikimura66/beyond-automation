@@ -261,3 +261,20 @@ locator.waitFor: Timeout 10000ms exceeded.
 
 **修正**
 `page.getByRole('button', { name: /^検索$/ })` で検索ボタンを押してパネルを開いてから、XPath inputを使用。
+
+---
+
+## [2026-06-07] #015 — Step 3 `原本グループ` の list-menu-item クリックがタイムアウト
+
+**エラー内容**
+```
+locator.click: Timeout 30000ms exceeded.
+  - waiting for locator('[data-testid="list-menu-item"]').filter({ hasText: '原本グループ' }).first()
+    at task.js:227
+```
+
+**原因**
+Step 2.5が /folders の検索パネルで完了した後、Step 3が同じ /folders ビューでサイドバーの `原本グループ` を直接クリックしようとしているが、検索パネルを閉じた後の通常サイドバーでは `list-menu-item` がクリックできない（インターセプト or 要素未表示）。
+
+**修正**
+Step 3も検索パネル方式に統一。`groupListSource → sourceFolder` の階層クリックを廃止し、`sourceFolder` を検索パネルで直接検索してクリックする方式に変更。検索パネルが閉じている場合は再度 `getByRole('button', 検索)` で開く。

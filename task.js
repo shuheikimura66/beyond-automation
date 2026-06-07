@@ -217,18 +217,24 @@ const axios = require('axios');
     await page.waitForTimeout(2000);
 
     // =========================================================
-    // [Step 3] コピー元フォルダの検索（新UIセレクター）
+    // [Step 3] コピー元フォルダを検索パネルで直接検索してクリック
     // =========================================================
-    console.log(`\n[Step 3] 原本グループ「${groupListSource}」を検索します。`);
+    console.log(`\n[Step 3] 原本フォルダ「${sourceFolder}」を検索します。`);
 
-    // 検索不要 — サイドバーから直接グループをクリックして展開
-    console.log(`  - サイドバーから「${groupListSource}」を直接クリックします。`);
-    await page.locator('[data-testid="list-menu-item"]')
-      .filter({ hasText: groupListSource }).first().click();
-    await page.waitForTimeout(1000);
+    // 検索パネルが閉じていれば再度開く
+    const sideMenuInput3 = page.locator('xpath=//*[@data-testid="side-menu"]/div[1]/div[1]/div/div/label/input');
+    if (!(await sideMenuInput3.isVisible({ timeout: 1500 }).catch(() => false))) {
+      console.log(`  - 「検索」ボタンをクリックして検索パネルを開きます。`);
+      await page.getByRole('button', { name: /^検索$/ }).first().click();
+      await page.waitForTimeout(800);
+    }
 
-    // ソースフォルダをクリック
-    console.log(`  - フォルダ「${sourceFolder}」をクリックします。`);
+    // sourceFolder を検索して直接クリック（groupListSource経由の階層操作を廃止）
+    console.log(`  - 「${sourceFolder}」を検索してクリックします。`);
+    await sideMenuInput3.fill(sourceFolder);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(2000);
+
     await page.locator('[data-testid="list-menu-item"]')
       .filter({ hasText: sourceFolder }).first().click();
     await page.waitForTimeout(3000);

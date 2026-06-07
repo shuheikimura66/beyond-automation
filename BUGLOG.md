@@ -352,3 +352,32 @@ await page.getByText('いつでも変更可能です').last().click();
 // 複製実行（設定確認なし）
 await page.getByText('この内容でページを複製する', { exact: true }).last().click();
 ```
+
+---
+
+## [2026-06-07] #019 — task.js：配信URL未入力（isVisible スキップ） / ページ名blur欠落
+
+**対象ファイル**
+`task.js`
+
+**エラー内容**
+スクリーンショットで配信URL欄が空のまま。設定確認ボタンは有効（青）だが入力値なし。
+手動では正常動作。録画（新 0607_1.json）を参照。
+
+**原因**
+1. `if (await urlInput.isVisible().catch(() => false))` でURL inputの検出が false になりサイレントスキップ。
+2. URL入力後にblur処理がなく、UIがバリデーションを確定しない可能性。
+3. ページ名accordion → 入力フローが task.js に存在しなかった（録画では操作あり）。
+
+**修正**
+- `isVisible()` → `waitFor({ state: 'visible', timeout: 5000 })` に変更
+- URL fill後に `page.keyboard.press('Tab')` でblur（録画の `div.css-1ks2dpx` クリック相当）
+- ページ名accordionを開く処理を追加（task.js は newArticleName なしのため名前入力はスキップ）
+
+```js
+const urlInput = activeModal.locator('section:nth-of-type(3) input').first();
+await urlInput.waitFor({ state: 'visible', timeout: 5000 });
+await urlInput.click();
+await urlInput.fill(deliveryUrl);
+await page.keyboard.press('Tab'); // blur
+```

@@ -305,18 +305,27 @@ const axios = require('axios');
       .locator('div:nth-of-type(2)').click();
     await page.waitForTimeout(1000);
 
-    // 配信URL入力
+    // 配信URL入力（録画 0607_1.json: section[3] → URL input → Tab でblur）
     if (deliveryUrl) {
       console.log(`  - 配信URLを入力します: ${deliveryUrl}`);
       const urlInput = activeModal.locator('section:nth-of-type(3) input').first();
-      if (await urlInput.isVisible().catch(() => false)) {
-        await urlInput.click();
-        await urlInput.fill(deliveryUrl);
-        await page.waitForTimeout(500);
-      }
+      await urlInput.waitFor({ state: 'visible', timeout: 5000 });
+      await urlInput.click();
+      await urlInput.fill(deliveryUrl);
+      await page.keyboard.press('Tab'); // blur してバリデーション確定（録画のコンテナクリックと同等）
+      await page.waitForTimeout(500);
     }
 
-    // 設定確認
+    // ページ名accordion → 入力（録画: 「🙆いつでも変更可能です」クリック後に name input）
+    const pageNameAccordion = page.getByText('いつでも変更可能です').last();
+    if (await pageNameAccordion.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await pageNameAccordion.click();
+      await page.waitForTimeout(800);
+      // ページ名は自動生成のまま（task.js では newArticleName を使わない）
+      // → inputに触れず skip（ランダム文字列が自動設定される）
+    }
+
+    // 設定確認（録画: 別フォルダへ複製では必要）
     await page.getByText('設定確認', { exact: true }).last().click();
     await page.waitForTimeout(2000);
 

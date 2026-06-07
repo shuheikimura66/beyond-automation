@@ -381,3 +381,109 @@ await urlInput.click();
 await urlInput.fill(deliveryUrl);
 await page.keyboard.press('Tab'); // blur
 ```
+
+---
+
+## [2026-06-07] #020 — duplicate_page_task.js：配信URLタブが開かない（Radix UIトリガー誤認）
+
+**対象ファイル**
+`duplicate_page_task.js`
+
+**エラー内容**
+配信URL入力欄が空白のまま複製実行。URLが設定されない。
+
+**原因**
+1. `getByText('配信URL').click()` はRadix UIのaccordion **コンテンツ**テキストにマッチするが、実際のトリガー要素は `<span class="css-1y4djjq ei7abna4">⚠️後から変更できません</span>` というspanタグ。
+2. 録画 `1.json` の selector: `#radix-:r19n:-trigger-url > span` と `text/⚠️後から変更できません`。
+3. `設定確認` クリックが誤って削除されていた（beyondページ複製でも必要）。
+
+**修正**
+- `getByText('配信URL')` → `getByText('⚠️後から変更できません')` に変更
+- `設定確認` クリックを復元
+- destFolderクリックに `.locator('div:nth-of-type(2)')` → `.locator('xpath=div[2]')` を適用（予防的）
+
+```js
+await page.getByText('⚠️後から変更できません').click();
+```
+
+---
+
+## [2026-06-07] #021 — duplicate_page_task.js：Step 6 URL取得でドメイン文字列構築に失敗
+
+**対象ファイル**
+`duplicate_page_task.js`
+
+**エラー内容**
+Step 6でのURL取得処理がエラー終了。ドメイン文字列からURLを組み立てる方式が不安定。
+
+**原因**
+`destFolder` の文字列からドメインを正規表現で抽出してURL構築しようとしたが、フォルダ名の命名規則によっては抽出できないケースがある。
+
+**修正**
+UIフローでURLを直接取得する方式に変更。
+- `/folders` 画面で検索 → フォルダクリック → 記事クリック → コピーボタン → clipboard API
+
+```js
+await page.getByRole('button', { name: 'コピー' }).first().click();
+const finalUrl = await page.evaluate(() => navigator.clipboard.readText());
+```
+
+---
+
+## [2026-06-07] #022 — duplicate_page_task.js：Step 6 検索でEnterを押すとフォルダ内容が空になる
+
+**対象ファイル**
+`duplicate_page_task.js`
+
+**エラー内容**
+Step 6でdestFolderを検索後、フォルダをクリックしても記事が表示されない。
+
+**原因**
+サイドメニュー検索でEnterキーを押すとフォルダの**中身をフィルタ**する挙動になり、記事一覧が空になる。
+Step 2（sourceFolder検索）はEnterが必要だが、Step 6はchange event（入力のみ）で検索結果が自動表示される。
+
+**修正**
+Step 6の検索でEnterキー押下を削除。2秒待機のみで結果を待つ。
+
+```js
+await sideInputForUrl.fill(destFolder);
+await page.waitForTimeout(2000); // Enterなし
+```
+
+---
+
+## [2026-06-07] #023 — duplicate_page_task.js：Step 6 destFolderクリックで strict mode violation
+
+**対象ファイル**
+`duplicate_page_task.js`
+
+**エラーログ（GitHub Actions 実行 #27088055735）**
+```
+locator.click: Error: strict mode violation:
+  locator('[data-testid="list-menu-item"]').filter({ hasText: '【Google広告】リリィジュ木村_07（perfectskinmagic.site）' }).first().locator('div:nth-of-type(2)')
+  resolved to 2 elements:
+    1) <div class="css-79rqsy e1n71b3p3">【Google広告】リリィジュ木村_07...
+    2) <div type="button" data-state="closed" aria-expanded="false" aria-haspopup="dialog" ...>
+  at duplicate_page_task.js:264
+```
+
+**原因**
+CSS の `div:nth-of-type(2)` は **descendant selector** のため、`list-menu-item` 内のサブツリー全体の「2番目div」に全てマッチする。
+- depth 1: `<div class="css-79rqsy">` ← 目的の要素
+- depth 2: `<div type="button">` ← ネストされた2番目div も一致
+
+**修正**
+`div:nth-of-type(2)` → `xpath=div[2]` に変更。
+XPathの `div[2]` は「直接の子の2番目div」のみを対象にするため、サブツリー内の要素はマッチしない。
+
+同パターンが2箇所（Step 5 line 190、Step 6 line 264）に存在。両方を修正。
+
+```js
+// Before（broken）:
+.locator('div:nth-of-type(2)').click();
+
+// After（fixed）:
+.locator('xpath=div[2]').click();
+```
+
+Steps 1〜5 は全て正常完了。エラーはStep 6のみ。

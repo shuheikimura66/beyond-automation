@@ -183,11 +183,13 @@ const axios = require('axios');
     await page.getByText(groupListDest, { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
-    // destFolderクリック（録画 1.json: div[2] = テキスト部分）
+    // destFolderクリック（録画 1.json: div[2] = 直接子の2番目div = テキスト部分）
+    // ※ CSS div:nth-of-type(2) はサブツリー全体にマッチして strict mode violation を起こすため
+    //   XPath div[2]（直接の子のみ）を使用する
     console.log(`  - フォルダ「${destFolder}」をクリックします。`);
     await page.locator('[data-testid="list-menu-item"]')
       .filter({ hasText: destFolder }).last()
-      .locator('div:nth-of-type(2)').click();
+      .locator('xpath=div[2]').click();
     await page.waitForTimeout(1000);
 
     // --- 配信URLタブを開く ---
@@ -258,10 +260,11 @@ const axios = require('axios');
     await sideInputForUrl.fill(destFolder);
     await page.waitForTimeout(2000); // Enterなし：検索結果が自動で出るまで待つ
 
-    // destFolder をクリック（div[2] = テキスト部分）
+    // destFolder をクリック（XPath div[2] = 直接子の2番目div = テキスト部分）
+    // ※ CSS div:nth-of-type(2) はサブツリー全体マッチで strict mode violation → XPath で直接子に限定
     await page.locator('[data-testid="list-menu-item"]')
       .filter({ hasText: destFolder }).first()
-      .locator('div:nth-of-type(2)').click();
+      .locator('xpath=div[2]').click();
     await page.waitForTimeout(3000);
 
     // 記事をクリックして右パネルを開く

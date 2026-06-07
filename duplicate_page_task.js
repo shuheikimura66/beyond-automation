@@ -189,45 +189,43 @@ const axios = require('axios');
       .filter({ hasText: destFolder }).last().click();
     await page.waitForTimeout(1000);
 
-    // --- 配信URL（section 3 の最初の input） ---
-    if (deliveryUrl) {
-      console.log(`  - 3. 配信URL「${deliveryUrl}」を入力します。`);
-      const urlInput = activeModal.locator('section:nth-of-type(3) input').first();
-      if (await urlInput.isVisible().catch(() => false)) {
-        await urlInput.click();
-        await urlInput.fill(deliveryUrl);
-        await page.waitForTimeout(500);
-      }
+    // --- 配信URL（「配信URL」タブを明示的に開いてから入力） ---
+    // 録画: URL tabはデフォルト左タブだが、ヘッドレスでは明示的にクリックが必要な場合がある
+    console.log(`  - 3. 「配信URL」タブをクリックします。`);
+    const urlTab = page.getByText('配信URL').first();
+    if (await urlTab.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await urlTab.click();
+      await page.waitForTimeout(500);
     }
 
-    // --- ページ名タブを開く ---
+    if (deliveryUrl) {
+      console.log(`  - 配信URL「${deliveryUrl}」を入力します。`);
+      // waitForで確実に表示されてから入力
+      const urlInput = activeModal.locator('section:nth-of-type(3) input').first();
+      await urlInput.waitFor({ state: 'visible', timeout: 5000 });
+      await urlInput.click();
+      await urlInput.fill(deliveryUrl);
+      await page.waitForTimeout(500);
+    }
+
+    // --- ページ名タブを開く（録画: text/🙆いつでも変更可能です）---
     console.log(`  - 「🙆いつでも変更可能です」をクリックしてページ名欄を開きます。`);
     const pageNameTab = page.getByText('いつでも変更可能です').last();
-    if (await pageNameTab.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await pageNameTab.click();
-      await page.waitForTimeout(1000);
-    } else {
-      console.log(`  ⚠️ ページ名タブが見つからないため、そのまま進みます。`);
-    }
+    await pageNameTab.waitFor({ state: 'visible', timeout: 5000 });
+    await pageNameTab.click();
+    await page.waitForTimeout(1000);
 
-    // --- ページ名入力（タブを開いた後の最後の input） ---
+    // --- ページ名入力（タブを開いた後の input） ---
     console.log(`  - ページ名「${newArticleName}」を入力します。`);
     const pageNameInput = activeModal.locator('section:nth-of-type(3) input').last();
-    if (await pageNameInput.isVisible().catch(() => false)) {
-      await pageNameInput.click();
-      await page.keyboard.press('Control+A');
-      await pageNameInput.fill(newArticleName);
-      await page.waitForTimeout(500);
-    } else {
-      console.log(`  ⚠️ ページ名入力欄が見つかりませんでした。`);
-    }
+    await pageNameInput.waitFor({ state: 'visible', timeout: 5000 });
+    await pageNameInput.click();
+    await page.keyboard.press('Control+A');
+    await pageNameInput.fill(newArticleName);
+    await page.waitForTimeout(500);
 
-    // --- 設定確認 ---
-    console.log(`  - 「設定確認」をクリックします。`);
-    await page.getByText('設定確認', { exact: true }).last().click();
-    await page.waitForTimeout(2000);
-
-    // --- 複製実行 ---
+    // --- 複製実行（録画: 設定確認なし → 直接「この内容でページを複製する」）---
+    // ※ beyondページ複製ダイアログでは設定確認ステップが不要（録画0607_10.json確認済み）
     console.log(`  - 「この内容でページを複製する」をクリックします。`);
     await page.getByText('この内容でページを複製する', { exact: true }).last().click();
 

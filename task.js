@@ -185,17 +185,15 @@ const axios = require('axios');
     await page.waitForTimeout(3000);
     await page.waitForLoadState('load');
 
-    // 検索は使わず「新しいフォルダ」をサイドバーで直接探す
-    console.log(`  - サイドバーから「新しいフォルダ」を直接探します。`);
+    // トップバー検索で「新しいフォルダ」を検索して直接アクセス
+    console.log(`  - トップバー検索から「新しいフォルダ」を検索します。`);
+    const topSearch = page.locator('input[placeholder="ページ/ドメイン/URLで検索"]').first();
+    await topSearch.waitFor({ state: 'visible', timeout: 10000 });
+    await topSearch.click();
+    await topSearch.fill('新しいフォルダ');
+    await page.waitForTimeout(2000);
 
-    // groupListDestグループが折りたたまれていれば展開する
-    const destGroupItem = page.locator('[data-testid="list-menu-item"]').filter({ hasText: groupListDest }).first();
-    if (await destGroupItem.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await destGroupItem.click();
-      await page.waitForTimeout(1000);
-    }
-
-    // 「新しいフォルダ」を探して3ドットボタンをクリック
+    // 検索結果の「新しいフォルダ」にhoverして3ドットボタンをクリック
     const newFolderItem = page.locator('[data-testid="list-menu-item"]').filter({ hasText: '新しいフォルダ' }).first();
     await newFolderItem.waitFor({ state: 'visible', timeout: 10000 });
     await newFolderItem.hover();

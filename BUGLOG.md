@@ -186,3 +186,22 @@ Step 3 も同じセレクターを使用しており、Step 2.5 が失敗する�
 Step 2.5・Step 3 ともにサイドバー検索を完全廃止。
 - Step 2.5: `groupListDest` グループを `filter({ hasText })` で展開 → `新しいフォルダ` を直接 hover して3ドットボタン → 名称変更
 - Step 3: `groupListSource` を `filter({ hasText })` で直接クリックして展開（検索なし）
+
+---
+
+## [2026-06-07] #011 — Step 2.5 サイドバーグループクリックがインターセプトされてタイムアウト
+
+**エラー内容**
+```
+locator.click: Timeout 30000ms exceeded.
+  - locator resolved to <div data-testid="list-menu-item" ...>
+  - element is visible, enabled and stable
+  - scrolling into view if needed
+  （スクロール後に別要素がポインターをインターセプト）
+```
+
+**原因**
+サイドバーの `[data-testid="list-menu-item"]` は要素として存在・表示されているが、スクロール後に別のオーバーレイ要素がクリックをインターセプトするためタイムアウト。
+
+**修正**
+サイドバー経由の操作を廃止し、トップバー検索 `input[placeholder="ページ/ドメイン/URLで検索"]` に「新しいフォルダ」を入力して検索結果から直接 hover → 3ドット → 名称変更に変更。

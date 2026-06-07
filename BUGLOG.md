@@ -278,3 +278,22 @@ Step 2.5が /folders の検索パネルで完了した後、Step 3が同じ /fol
 
 **修正**
 Step 3も検索パネル方式に統一。`groupListSource → sourceFolder` の階層クリックを廃止し、`sourceFolder` を検索パネルで直接検索してクリックする方式に変更。検索パネルが閉じている場合は再度 `getByRole('button', 検索)` で開く。
+
+---
+
+## [2026-06-07] #016 — Step 5 `button.css-16dhtfm` タイムアウト / Step 6 フォルダクリック生成クラス
+
+**エラー内容**
+```
+locator.click: Timeout 30000ms exceeded.
+  - waiting for locator('button.css-16dhtfm')
+    at task.js:262
+```
+
+**原因**
+Step 5の `button.css-16dhtfm`（生成クラス）がUI変更で無効化。
+Step 6のフォルダクリック `div.css-d3v9zr div.css-79rqsy` も同様に生成クラスで不安定。
+
+**修正（Chrome DevTools Recorder 録画 0607_1.json から取得）**
+- Step 5: `button.css-16dhtfm` → `[data-testid="option-icon"]`（data-testid属性で安定）
+- Step 6 フォルダクリック: `div.css-d3v9zr div.css-79rqsy` → `[data-testid="list-menu-item"].filter(destFolder) > div:nth-of-type(2)`

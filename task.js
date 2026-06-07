@@ -253,20 +253,20 @@ const axios = require('axios');
     await page.waitForTimeout(3000);
 
     // =========================================================
-    // [Step 5] 「別フォルダへ複製」を選択（新UI: 直接クリック）
-    // 旧: hover → 親要素を辿ってnthボタン
-    // 新: button.css-16dhtfm を直接クリック
+    // [Step 5] 「別フォルダへ複製」を選択
+    // 旧: button.css-16dhtfm（生成クラス）
+    // 新: [data-testid='option-icon']（録画から取得）
     // =========================================================
     console.log(`\n[Step 5] 「別フォルダへ複製」を選択します。`);
 
-    await page.locator('button.css-16dhtfm').click();
+    await page.locator('[data-testid="option-icon"]').first().click();
     await page.waitForTimeout(500);
 
     await page.getByText('別フォルダへ複製', { exact: true }).last().click();
     await page.waitForTimeout(2000);
 
     // =========================================================
-    // [Step 6] 複製設定（新UIセレクター）
+    // [Step 6] 複製設定（録画セレクターに更新）
     // =========================================================
     console.log(`\n[Step 6] 複製ウィザードを進めます（新UI対応）。`);
 
@@ -293,8 +293,11 @@ const axios = require('axios');
     await page.waitForTimeout(1000);
 
     // フォルダをクリック
-    await page.locator('div.css-d3v9zr div.css-79rqsy')
-      .filter({ hasText: destFolder }).last().click();
+    // 旧: div.css-d3v9zr div.css-79rqsy（生成クラス）
+    // 新: [data-testid="list-menu-item"] div:nth-of-type(2)（録画から取得）
+    await page.locator('[data-testid="list-menu-item"]')
+      .filter({ hasText: destFolder }).last()
+      .locator('div:nth-of-type(2)').click();
     await page.waitForTimeout(1000);
 
     // 配信URL入力

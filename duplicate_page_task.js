@@ -241,40 +241,36 @@ const axios = require('axios');
 
     console.log(`\n[Step 6] 複製されたページのURLを取得します。`);
 
-    // /folders へ移動（検索パネルを使って destFolder を開く）
+    // /folders へ移動
     await page.goto('https://app.squadbeyond.com/folders');
     await page.waitForLoadState('load');
     await page.waitForTimeout(2000);
 
-    // 検索パネルが閉じていれば開く
-    const sideInputForUrl = page.locator('xpath=//*[@data-testid="side-menu"]/div[1]/div[1]/div/div/label/input');
-    if (!(await sideInputForUrl.isVisible({ timeout: 1500 }).catch(() => false))) {
-      await page.getByRole('button', { name: /^検索$/ }).first().click();
-      await page.waitForTimeout(800);
-    }
+    // 検索ボタンを必ずクリックしてパネルを開く（録画 3.json: aria/検索 button を常にクリック）
+    console.log(`  - 検索パネルを開きます。`);
+    await page.getByRole('button', { name: /^検索$/ }).first().click();
+    await page.waitForTimeout(800);
 
-    // destFolder を検索して開く
+    // destFolder を検索（録画: Enterなし = change eventのみ、waitで結果を待つ）
     console.log(`  - 複製先フォルダ「${destFolder}」を検索します。`);
+    const sideInputForUrl = page.locator('xpath=//*[@data-testid="side-menu"]/div[1]/div[1]/div/div/label/input');
+    await sideInputForUrl.waitFor({ state: 'visible', timeout: 5000 });
     await sideInputForUrl.fill(destFolder);
-    await page.keyboard.press('Enter');
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(2000); // Enterなし：検索結果が自動で出るまで待つ
 
+    // destFolder をクリック（div[2] = テキスト部分）
     await page.locator('[data-testid="list-menu-item"]')
       .filter({ hasText: destFolder }).first()
       .locator('div:nth-of-type(2)').click();
     await page.waitForTimeout(3000);
 
-    // 複製された記事をクリックして右パネル（詳細）を開く
-    console.log(`  - 複製記事「${newArticleName}」をクリックして詳細パネルを開きます。`);
-    const dupArticleItem = page.getByText(newArticleName, { exact: true }).first();
-    if (await dupArticleItem.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await dupArticleItem.click();
-      await page.waitForTimeout(1500);
-    } else {
-      console.log(`  ⚠️ 記事名が見つからないため最初の記事を使用します。`);
-      await page.locator('[data-testid="list-menu-item"]').first().click();
-      await page.waitForTimeout(1500);
-    }
+    // 記事をクリックして右パネルを開く
+    // 録画 3.json: xpath/[data-testid="list-menu-item"]/div/div/div[2]/div[1]/div[1]
+    console.log(`  - 記事をクリックして詳細パネルを開きます。`);
+    const articleCell = page.locator('xpath=//*[@data-testid="list-menu-item"]/div/div/div[2]/div[1]/div[1]').first();
+    await articleCell.waitFor({ state: 'visible', timeout: 10000 });
+    await articleCell.click();
+    await page.waitForTimeout(1500);
 
     // URLコピーボタンをクリック（録画: aria/コピー[role="button"]）
     console.log(`  - URLコピーボタンをクリックします。`);

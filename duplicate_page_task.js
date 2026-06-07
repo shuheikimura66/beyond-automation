@@ -235,8 +235,10 @@ const axios = require('axios');
     await page.getByText('この内容でページを複製する', { exact: true }).last().click();
 
     // =========================================================
-    // [Step 6] 複製完了待機 → 複製記事を開いてURLをコピー取得 → GAS送信
-    // 録画 2.json: destFolder検索 → クリック → 記事クリック → コピーボタン → clipboard取得
+    // [Step 6] 複製完了待機 → destFolder検索 → 記事名検索 → hover → 編集ボタン → URL取得
+    // フロー: /folders → サイドメニューdestFolder検索・クリック
+    //         → コンテンツ内newArticleName検索 → hover → 右の編集ボタンクリック
+    //         → コピーボタン → clipboard取得
     // =========================================================
     console.log(`  => ⏳ 複製処理の完了を待機しています... (10秒)`);
     await page.waitForTimeout(10000);
@@ -248,34 +250,46 @@ const axios = require('axios');
     await page.waitForLoadState('load');
     await page.waitForTimeout(2000);
 
-    // 検索ボタンを必ずクリックしてパネルを開く（録画 3.json: aria/検索 button を常にクリック）
+    // 検索ボタンをクリックしてサイドメニューパネルを開く
     console.log(`  - 検索パネルを開きます。`);
     await page.getByRole('button', { name: /^検索$/ }).first().click();
     await page.waitForTimeout(800);
 
-    // destFolder を検索（録画: Enterなし = change eventのみ、waitで結果を待つ）
+    // destFolder をサイドメニューで検索（Enterなし = change eventのみ）
     console.log(`  - 複製先フォルダ「${destFolder}」を検索します。`);
     const sideInputForUrl = page.locator('xpath=//*[@data-testid="side-menu"]/div[1]/div[1]/div/div/label/input');
     await sideInputForUrl.waitFor({ state: 'visible', timeout: 5000 });
     await sideInputForUrl.fill(destFolder);
-    await page.waitForTimeout(2000); // Enterなし：検索結果が自動で出るまで待つ
+    await page.waitForTimeout(2000); // Enterなし：change eventのみで検索結果が出る
 
     // destFolder をクリック（XPath div[2] = 直接子の2番目div = テキスト部分）
-    // ※ CSS div:nth-of-type(2) はサブツリー全体マッチで strict mode violation → XPath で直接子に限定
+    console.log(`  - フォルダ「${destFolder}」をクリックします。`);
     await page.locator('[data-testid="list-menu-item"]')
       .filter({ hasText: destFolder }).first()
       .locator('xpath=div[2]').click();
     await page.waitForTimeout(3000);
 
-    // 記事をクリックして右パネルを開く
-    // 録画 3.json: xpath/[data-testid="list-menu-item"]/div/div/div[2]/div[1]/div[1]
-    console.log(`  - 記事をクリックして詳細パネルを開きます。`);
-    const articleCell = page.locator('xpath=//*[@data-testid="list-menu-item"]/div/div/div[2]/div[1]/div[1]').first();
-    await articleCell.waitFor({ state: 'visible', timeout: 10000 });
-    await articleCell.click();
-    await page.waitForTimeout(1500);
+    // コンテンツエリアの検索ボタンで記事名を検索（Step 3 と同じセレクター）
+    console.log(`  - コンテンツ内で記事「${newArticleName}」を検索します。`);
+    await page.locator('button.efy50tl0').click();
+    await page.waitForTimeout(500);
+    await page.locator('div.css-68s747 input').first().fill(newArticleName);
+    await page.waitForTimeout(3000);
 
-    // URLコピーボタンをクリック（録画: aria/コピー[role="button"]）
+    // 記事にhoverして編集ボタンを出現させる
+    console.log(`  - 記事「${newArticleName}」にhoverして編集ボタンを出現させます。`);
+    const newArticleItem = page.getByText(newArticleName, { exact: true }).first();
+    await newArticleItem.waitFor({ state: 'visible', timeout: 10000 });
+    await newArticleItem.hover();
+    await page.waitForTimeout(500);
+
+    // 記事名の右の編集ボタンをクリック
+    // option-icon（三点メニュー）ではなく、hover時に出現する直接の編集アイコンボタン
+    console.log(`  - 記事名の右の編集ボタンをクリックします。`);
+    await page.locator('[data-testid="edit-icon"]').first().click();
+    await page.waitForTimeout(2000);
+
+    // URLコピーボタンをクリック
     console.log(`  - URLコピーボタンをクリックします。`);
     await page.getByRole('button', { name: 'コピー' }).first().click();
     await page.waitForTimeout(500);

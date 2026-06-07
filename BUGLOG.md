@@ -318,3 +318,37 @@ await articleItem.hover();
 await page.waitForTimeout(500);
 await page.locator('[data-testid="option-icon"]').first().click();
 ```
+
+---
+
+## [2026-06-07] #018 — duplicate_page_task.js：配信URL未入力 → 設定確認が無効 → エラー
+
+**対象ファイル**
+`duplicate_page_task.js`
+
+**エラー内容**
+ダイアログの「設定確認」ボタンがグレーで無効状態のまま処理が止まる。手動では正常動作。
+
+**原因**
+2点の複合要因：
+1. **配信URLタブを明示的に開いていなかった** → ヘッドレスブラウザではデフォルトでURLタブが開いていない場合があり、`isVisible()` チェックで URL input が見つからずスキップされた。
+2. **`設定確認` クリックが録画に存在しない** → `beyondページ複製` ダイアログは `設定確認` を経由せず直接「この内容でページを複製する」へ進む設計。コードに不要な `設定確認` クリックが含まれていた（URLが未入力のため無効ボタン状態になりエラー）。
+
+**修正（録画 0607_10.json 確認）**
+- `getByText('配信URL').click()` で配信URLタブを明示的に開いてから入力
+- `isVisible()` ガードを `waitFor({ state: 'visible' })` に変更（サイレントスキップを防止）
+- `設定確認` ステップを削除 → `この内容でページを複製する` を直接クリック
+
+```js
+// 配信URLタブを明示的に開く
+await page.getByText('配信URL').first().click();
+await page.waitForTimeout(500);
+// URL入力
+const urlInput = activeModal.locator('section:nth-of-type(3) input').first();
+await urlInput.waitFor({ state: 'visible', timeout: 5000 });
+await urlInput.fill(deliveryUrl);
+// ページ名タブへ切り替え
+await page.getByText('いつでも変更可能です').last().click();
+// 複製実行（設定確認なし）
+await page.getByText('この内容でページを複製する', { exact: true }).last().click();
+```

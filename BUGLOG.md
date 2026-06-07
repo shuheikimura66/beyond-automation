@@ -205,3 +205,21 @@ locator.click: Timeout 30000ms exceeded.
 
 **修正**
 サイドバー経由の操作を廃止し、トップバー検索 `input[placeholder="ページ/ドメイン/URLで検索"]` に「新しいフォルダ」を入力して検索結果から直接 hover → 3ドット → 名称変更に変更。
+
+---
+
+## [2026-06-07] #012 — トップバー検索inputが存在しない（Timeout 10000ms）
+
+**エラー内容**
+```
+locator.waitFor: Timeout 10000ms exceeded.
+  - waiting for locator('input[placeholder="ページ/ドメイン/URLで検索"]').first() to be visible
+    at task.js:191
+```
+
+**原因**
+ページ一覧ビューに戻った後、`input[placeholder="ページ/ドメイン/URLで検索"]` が自動的には表示されない状態。
+一方、ページ一覧ビューのメインコンテンツには「新しいフォルダ」が既に表示されており、検索は不要だった。
+
+**修正**
+検索を完全に廃止。`page.getByText('新しいフォルダ', { exact: true })` を直接右クリックしてコンテキストメニュー「名称変更」を呼び出す方式に変更。

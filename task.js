@@ -185,19 +185,11 @@ const axios = require('axios');
     await page.waitForTimeout(3000);
     await page.waitForLoadState('load');
 
-    // トップバー検索で「新しいフォルダ」を検索して直接アクセス
-    console.log(`  - トップバー検索から「新しいフォルダ」を検索します。`);
-    const topSearch = page.locator('input[placeholder="ページ/ドメイン/URLで検索"]').first();
-    await topSearch.waitFor({ state: 'visible', timeout: 10000 });
-    await topSearch.click();
-    await topSearch.fill('新しいフォルダ');
-    await page.waitForTimeout(2000);
-
-    // 検索結果の「新しいフォルダ」にhoverして3ドットボタンをクリック
-    const newFolderItem = page.locator('[data-testid="list-menu-item"]').filter({ hasText: '新しいフォルダ' }).first();
-    await newFolderItem.waitFor({ state: 'visible', timeout: 10000 });
-    await newFolderItem.hover();
-    await newFolderItem.locator('button').last().click();
+    // メインコンテンツに「新しいフォルダ」が表示されているので右クリックで名称変更
+    console.log(`  - 「新しいフォルダ」を右クリックして名称変更メニューを開きます。`);
+    const newFolderText = page.getByText('新しいフォルダ', { exact: true }).first();
+    await newFolderText.waitFor({ state: 'visible', timeout: 10000 });
+    await newFolderText.click({ button: 'right' });
     await page.waitForTimeout(500);
 
     // 名称変更

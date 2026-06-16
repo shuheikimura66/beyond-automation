@@ -137,8 +137,8 @@ const axios = require('axios');
     await page.waitForTimeout(3000);
 
     // =========================================================
-    // [Step 4] option-icon → 「beyondページ複製」
-    // 録画より: 常に「beyondページ複製」（isSameFolder条件なし）
+    // [Step 4] option-icon → 「別フォルダへ複製」
+    // 新UI: 3ドットメニューから「別フォルダへ複製」を選択
     // =========================================================
     console.log(`\n[Step 4] 対象記事のメニューを開きます。`);
 
@@ -150,8 +150,8 @@ const axios = require('axios');
     await page.locator('[data-testid="option-icon"]').first().click();
     await page.waitForTimeout(1000);
 
-    console.log(`  => 「beyondページ複製」を選択します。`);
-    const duplicateMenuItem = page.getByText('beyondページ複製', { exact: true }).last();
+    console.log(`  => 「別フォルダへ複製」を選択します。`);
+    const duplicateMenuItem = page.getByText('別フォルダへ複製', { exact: true }).last();
     await duplicateMenuItem.waitFor({ state: 'visible', timeout: 10000 });
     await duplicateMenuItem.click();
     await page.waitForTimeout(2000);

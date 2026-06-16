@@ -6,6 +6,24 @@ squadbeyond.com のUIが変更されたため、task.js のセレクターを新
 
 ---
 
+## [2026-06-16] #010 — `duplicate_page_task.js` Step 4 のメニュー項目テキストが新UIで変更
+
+**エラー内容**
+```
+locator.click: Timeout 30000ms exceeded.
+  - waiting for getByText('beyondページ複製', { exact: true }).last()
+  - locator resolved to <span class="css-1xdhyk6 e1u6usw30">beyondページ複製</span>
+  - waiting for element to be visible, enabled and stable
+```
+
+**原因**
+新UIでは3ドットメニューのポップアップに「beyondページ複製」は存在せず、「別フォルダへ複製」が正しいボタン。旧テキストの要素がDOM上に残っているが非表示状態のためタイムアウト。
+
+**修正**
+`getByText('beyondページ複製')` → `getByText('別フォルダへ複製')` に変更。`waitFor({ state: 'visible', timeout: 10000 })` は維持。
+
+---
+
 ## [2026-06-16] #009 — `duplicate_page_task.js` の「beyondページ複製」クリックタイムアウト
 
 **エラー内容**

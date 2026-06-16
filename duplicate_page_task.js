@@ -148,10 +148,12 @@ const axios = require('axios');
     await articleItem.hover();
     await page.waitForTimeout(500);
     await page.locator('[data-testid="option-icon"]').first().click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1000);
 
     console.log(`  => 「beyondページ複製」を選択します。`);
-    await page.getByText('beyondページ複製', { exact: true }).last().click();
+    const duplicateMenuItem = page.getByText('beyondページ複製', { exact: true }).last();
+    await duplicateMenuItem.waitFor({ state: 'visible', timeout: 10000 });
+    await duplicateMenuItem.click();
     await page.waitForTimeout(2000);
 
     // =========================================================

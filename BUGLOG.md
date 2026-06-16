@@ -6,6 +6,25 @@ squadbeyond.com のUIが変更されたため、task.js のセレクターを新
 
 ---
 
+## [2026-06-16] #009 — `duplicate_page_task.js` の「beyondページ複製」クリックタイムアウト
+
+**エラー内容**
+```
+locator.click: Timeout 30000ms exceeded.
+  - waiting for getByText('beyondページ複製', { exact: true }).last()
+  - locator resolved to <span class="css-1xdhyk6 e1u6usw30">beyondページ複製</span>
+  - waiting for element to be visible, enabled and stable
+```
+
+**原因**
+`[data-testid="option-icon"]` クリック後の待機が500msと短く、ドロップダウンメニューのアニメーション完了前にクリックしようとしていた。要素は存在するが `visible/stable` 状態になっておらず30秒タイムアウト。
+
+**修正**
+- option-icon クリック後の待機を 500ms → 1000ms に延長
+- `beyondページ複製` クリック前に `waitFor({ state: 'visible', timeout: 10000 })` を追加して確実にメニューが表示されてからクリック
+
+---
+
 ## [2026-06-05] #001 — `getByText('独自ドメイン')` の strict mode violation
 
 **エラー内容**

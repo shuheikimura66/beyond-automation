@@ -1,5 +1,36 @@
 # Bug Fix Log — beyond-automation / task.js
 
+## [2026-06-22] #024 — フォルダ検索UIが「フォルダ」タブ + mark要素クリック方式に変更
+
+**対象ファイル**
+`task.js` (Step 2.5, Step 3) / `duplicate_page_task.js` (Step 2, Step 6)
+
+**エラー内容**
+コピー元フォルダの検索画面に文字列を入力すると、検索結果が「絞り込み / グループ / フォルダ / beyondページ名」のタブ付きUIで表示されるようになり、旧セレクター `[data-testid="list-menu-item"]` が機能しなくなった。
+
+**原因**
+新UIでは検索パネルがタブ式に変更され、テキスト入力後に「フォルダ」タブをクリックして絞り込む必要がある。
+検索結果の各行はDOM上で `<mark class="css-1o3tljv e1cq4h4n0">` 要素としてマッチ箇所が強調表示される構造になった。
+
+**修正**
+フォルダ検索を行う全4箇所を以下の新フローに統一：
+1. 検索inputにフォルダ名を入力（Enterなし）
+2. `[data-testid="side-menu"]` 内の「フォルダ」タブをクリック
+3. `page.locator('mark').filter({ hasText: folderName }).first().click()` で結果をクリック
+
+task.js Step 2.5（名称変更）は上記3ステップ後にhover → `[data-testid="option-icon"]` の流れを維持。
+
+```js
+await sideMenuInput.fill(folderName);
+await page.waitForTimeout(1000);
+await page.locator('[data-testid="side-menu"]').getByText('フォルダ', { exact: true }).click();
+await page.waitForTimeout(1000);
+await page.locator('mark').filter({ hasText: folderName }).first().click();
+```
+
+---
+
+
 ## 背景
 squadbeyond.com のUIが変更されたため、task.js のセレクターを新UIに対応させる作業。
 旧コードは `task_old.js` としてバックアップ済み。

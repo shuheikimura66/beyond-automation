@@ -117,13 +117,15 @@ const axios = require('axios');
     const sideMenuInput = page.locator('xpath=//*[@data-testid="side-menu"]/div[1]/div[1]/div/div/label/input');
     await sideMenuInput.waitFor({ state: 'visible', timeout: 5000 });
     await sideMenuInput.fill(sourceFolder);
-    await page.keyboard.press('Enter');
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(1000);
 
-    // 検索結果からフォルダをクリック
+    // 新UI: 「フォルダ」タブをクリックしてフォルダに絞り込む
+    await page.locator('[data-testid="side-menu"]').getByText('フォルダ', { exact: true }).click();
+    await page.waitForTimeout(1000);
+
+    // 検索結果のmark要素をクリックしてフォルダへ移動
     console.log(`  - 検索結果から「${sourceFolder}」をクリックします。`);
-    await page.locator('[data-testid="list-menu-item"]')
-      .filter({ hasText: sourceFolder }).first().click();
+    await page.locator('mark').filter({ hasText: sourceFolder }).first().click();
     await page.waitForTimeout(3000);
 
     // =========================================================
@@ -257,18 +259,20 @@ const axios = require('axios');
     await page.getByRole('button', { name: /^検索$/ }).first().click();
     await page.waitForTimeout(800);
 
-    // destFolder をサイドメニューで検索（Enterなし = change eventのみ）
+    // destFolder をサイドメニューで検索
     console.log(`  - 複製先フォルダ「${destFolder}」を検索します。`);
     const sideInputForUrl = page.locator('xpath=//*[@data-testid="side-menu"]/div[1]/div[1]/div/div/label/input');
     await sideInputForUrl.waitFor({ state: 'visible', timeout: 5000 });
     await sideInputForUrl.fill(destFolder);
-    await page.waitForTimeout(2000); // Enterなし：change eventのみで検索結果が出る
+    await page.waitForTimeout(1000);
 
-    // destFolder をクリック（XPath div[2] = 直接子の2番目div = テキスト部分）
+    // 新UI: 「フォルダ」タブをクリックしてフォルダに絞り込む
+    await page.locator('[data-testid="side-menu"]').getByText('フォルダ', { exact: true }).click();
+    await page.waitForTimeout(1000);
+
+    // 検索結果のmark要素をクリックしてフォルダへ移動
     console.log(`  - フォルダ「${destFolder}」をクリックします。`);
-    await page.locator('[data-testid="list-menu-item"]')
-      .filter({ hasText: destFolder }).first()
-      .locator('xpath=div[2]').click();
+    await page.locator('mark').filter({ hasText: destFolder }).first().click();
     await page.waitForTimeout(3000);
 
     // コンテンツエリアの検索ボタンで記事名を検索（Step 3 と同じセレクター）

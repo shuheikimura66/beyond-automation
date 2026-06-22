@@ -191,19 +191,26 @@ const axios = require('axios');
     await page.getByRole('button', { name: /^検索$/ }).first().click();
     await page.waitForTimeout(800);
 
-    // side-menu内の検索input（label内）で「新しいフォルダ」を検索
-    // 録画XPath: //*[@data-testid="side-menu"]/div[1]/div[1]/div/div/label/input
+    // 検索inputで「新しいフォルダ」を入力
     console.log(`  - 「新しいフォルダ」を検索します。`);
     const sideMenuInput = page.locator('xpath=//*[@data-testid="side-menu"]/div[1]/div[1]/div/div/label/input');
     await sideMenuInput.waitFor({ state: 'visible', timeout: 5000 });
     await sideMenuInput.fill('新しいフォルダ');
-    await page.keyboard.press('Enter');
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(1000);
 
-    // 検索結果の3ドットボタンをクリック
-    // 録画XPath: //*[@data-testid="list-menu-item"]/div[3]/div/div[2]/button
+    // 新UI: 「フォルダ」タブをクリックしてフォルダに絞り込む
+    await page.locator('[data-testid="side-menu"]').getByText('フォルダ', { exact: true }).click();
+    await page.waitForTimeout(1000);
+
+    // 検索結果にhoverして3ドットボタンを出現させる
+    const newFolderMark = page.locator('mark').filter({ hasText: '新しいフォルダ' }).first();
+    await newFolderMark.waitFor({ state: 'visible', timeout: 10000 });
+    await newFolderMark.hover();
+    await page.waitForTimeout(500);
+
+    // 3ドットボタンをクリック
     console.log(`  - 3ドットボタンをクリックします。`);
-    await page.locator('xpath=//*[@data-testid="list-menu-item"]/div[3]/div/div[2]/button').first().click();
+    await page.locator('[data-testid="option-icon"]').first().click();
     await page.waitForTimeout(500);
 
     // 名称変更
@@ -229,14 +236,17 @@ const axios = require('axios');
       await page.waitForTimeout(800);
     }
 
-    // sourceFolder を検索して直接クリック（groupListSource経由の階層操作を廃止）
+    // sourceFolder を検索
     console.log(`  - 「${sourceFolder}」を検索してクリックします。`);
     await sideMenuInput3.fill(sourceFolder);
-    await page.keyboard.press('Enter');
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(1000);
 
-    await page.locator('[data-testid="list-menu-item"]')
-      .filter({ hasText: sourceFolder }).first().click();
+    // 新UI: 「フォルダ」タブをクリックしてフォルダに絞り込む
+    await page.locator('[data-testid="side-menu"]').getByText('フォルダ', { exact: true }).click();
+    await page.waitForTimeout(1000);
+
+    // 検索結果のmark要素をクリックしてフォルダへ移動
+    await page.locator('mark').filter({ hasText: sourceFolder }).first().click();
     await page.waitForTimeout(3000);
 
     // =========================================================

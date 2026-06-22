@@ -307,6 +307,31 @@ const axios = require('axios');
   } catch (error) {
     console.error(`\n❌ エラー発生:\n`, error);
     await page.screenshot({ path: 'duplicate-error-screenshot.png', fullPage: true });
+
+    // DOM診断：UIが変わったときのセレクター特定用
+    console.log('\n========== DOM診断ログ ==========');
+    console.log('[現在URL]', page.url());
+    const diagTargets = [
+      { label: 'side-menu',        sel: '[data-testid="side-menu"]' },
+      { label: 'list-menu-item',   sel: '[data-testid="list-menu-item"]' },
+      { label: 'option-icon',      sel: '[data-testid="option-icon"]' },
+      { label: 'dialog',           sel: 'div[role="dialog"]' },
+      { label: 'mark(検索結果)',    sel: 'mark' },
+      { label: 'input(検索)',       sel: 'input[placeholder*="検索"]' },
+    ];
+    for (const t of diagTargets) {
+      try {
+        const count = await page.locator(t.sel).count();
+        if (count > 0) {
+          const html = await page.locator(t.sel).first().innerHTML();
+          console.log(`[${t.label}] count=${count} HTML(先頭500字):\n${html.slice(0, 500)}\n`);
+        } else {
+          console.log(`[${t.label}] 見つかりません`);
+        }
+      } catch(e) { console.log(`[${t.label}] 取得失敗: ${e.message}`); }
+    }
+    console.log('==================================\n');
+
     if (gasUrl) {
       await axios.post(gasUrl, { row_idx: rowIdx, entry_url: "", status: 'error', task_type: 'duplicate' });
     }

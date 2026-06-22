@@ -16,6 +16,22 @@ Step 2・Step 6 の input fill 前に `page.getByText('検索', { exact: true })
 
 ---
 
+## [2026-06-22] #028 — 「フォルダ」タブが `{ exact: true }` でマッチしない（実際は「フォルダ -」と表示）
+
+**エラー内容**
+```
+locator.waitFor: Timeout 10000ms exceeded.
+  - waiting for locator('div[role="dialog"]').first().getByText('フォルダ', { exact: true }) to be visible
+```
+
+**原因**
+検索ダイアログのタブは「フォルダ -」「フォルダ 3」のように件数サフィックスが付く。`{ exact: true }` では「フォルダ」と完全一致しないため見つからない。
+
+**修正**
+`getByText('フォルダ', { exact: true })` → `getByText(/^フォルダ/).first()` に変更し、「フォルダ」で始まる全パターンにマッチするよう修正。
+
+---
+
 ## [2026-06-22] #027 — `duplicate_page_task.js` Step 2/6「フォルダ」タブクリックがページ内フォルダ名にマッチしてタイムアウト
 
 **エラー内容**

@@ -119,9 +119,9 @@ const axios = require('axios');
     await sideMenuInput.fill(sourceFolder);
     await page.waitForTimeout(1500); // 検索結果が出るまで待つ
 
-    // 「フォルダ」タブ：ダイアログスコープ内で待ってからクリック（ページ内のフォルダ名と混同しないため）
+    // 「フォルダ」タブ：ダイアログスコープ内で前方一致（「フォルダ -」「フォルダ 3」も対応）
     const searchDialog2 = page.locator('div[role="dialog"]').first();
-    const folderTab2 = searchDialog2.getByText('フォルダ', { exact: true });
+    const folderTab2 = searchDialog2.getByText(/^フォルダ/).first();
     await folderTab2.waitFor({ state: 'visible', timeout: 10000 });
     await folderTab2.click();
     await page.waitForTimeout(1000);
@@ -269,9 +269,9 @@ const axios = require('axios');
     await sideInputForUrl.fill(destFolder);
     await page.waitForTimeout(1500); // 検索結果が出るまで待つ
 
-    // 「フォルダ」タブ：ダイアログスコープ内で待ってからクリック
+    // 「フォルダ」タブ：ダイアログスコープ内で前方一致
     const searchDialog6 = page.locator('div[role="dialog"]').first();
-    const folderTab6 = searchDialog6.getByText('フォルダ', { exact: true });
+    const folderTab6 = searchDialog6.getByText(/^フォルダ/).first();
     await folderTab6.waitFor({ state: 'visible', timeout: 10000 });
     await folderTab6.click();
     await page.waitForTimeout(1000);

@@ -108,14 +108,9 @@ const axios = require('axios');
     await page.waitForLoadState('load');
     await page.waitForTimeout(2000);
 
-    // 検索ボタンでパネルを開く
-    console.log(`  - 検索ボタンをクリックしてパネルを開きます。`);
-    await page.getByRole('button', { name: /^検索$/ }).first().click();
-    await page.waitForTimeout(800);
-
-    // モーダル内の検索inputを取得してsourceFolderを入力
+    // 新UI: 「検索」ボタン廃止。inputに直接入力
     const sideMenuInput = page.locator('input[placeholder*="検索"]').first();
-    await sideMenuInput.waitFor({ state: 'visible', timeout: 5000 });
+    await sideMenuInput.waitFor({ state: 'visible', timeout: 10000 });
     await sideMenuInput.fill(sourceFolder);
     await page.waitForTimeout(1000);
 
@@ -254,15 +249,10 @@ const axios = require('axios');
     await page.waitForLoadState('load');
     await page.waitForTimeout(2000);
 
-    // 検索ボタンをクリックしてサイドメニューパネルを開く
-    console.log(`  - 検索パネルを開きます。`);
-    await page.getByRole('button', { name: /^検索$/ }).first().click();
-    await page.waitForTimeout(800);
-
-    // destFolder をモーダル内で検索
+    // 新UI: 「検索」ボタン廃止。inputに直接入力
     console.log(`  - 複製先フォルダ「${destFolder}」を検索します。`);
     const sideInputForUrl = page.locator('input[placeholder*="検索"]').first();
-    await sideInputForUrl.waitFor({ state: 'visible', timeout: 5000 });
+    await sideInputForUrl.waitFor({ state: 'visible', timeout: 10000 });
     await sideInputForUrl.fill(destFolder);
     await page.waitForTimeout(1000);
 

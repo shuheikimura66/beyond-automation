@@ -1,5 +1,21 @@
 # Bug Fix Log — beyond-automation / task.js
 
+## [2026-06-22] #025 — `duplicate_page_task.js` Step 2/6 の「検索」ボタン廃止に対応（最終修正）
+
+**エラー内容**
+```
+locator.click: Timeout 30000ms exceeded.
+  - waiting for getByRole('button', { name: /^検索$/ }).first()
+```
+
+**原因**
+新UIでは「検索」ボタンが廃止された。`input[placeholder*="検索"]`、「フォルダ」タブ、`<mark>` 要素クリックの流れ自体はリモートに入っていたが、廃止された「検索」ボタンクリック行が残っていた。
+
+**修正**
+Step 2・Step 6 から `getByRole('button', { name: /^検索$/ }).click()` と直後の `waitForTimeout(800)` を削除。`input[placeholder*="検索"]` の `waitFor` タイムアウトを 5000ms → 10000ms に延長。
+
+---
+
 ## [2026-06-22] #024 — フォルダ検索UIが「フォルダ」タブ + mark要素クリック方式に変更
 
 **対象ファイル**

@@ -108,24 +108,29 @@ const axios = require('axios');
     await page.waitForLoadState('load');
     await page.waitForTimeout(2000);
 
-    // 新UI: 「検索」スパンをクリックして検索パネルを開く
-    console.log(`  - 「検索」をクリックして検索パネルを開きます。`);
+    // 「検索」スパンをクリックして検索ダイアログを開く
+    console.log(`  - 「検索」をクリックして検索ダイアログを開きます。`);
     await page.getByText('検索', { exact: true }).first().click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(800);
 
-    // inputに入力
+    // inputに入力（ダイアログが開いてから）
     const sideMenuInput = page.locator('input[placeholder*="検索"]').first();
     await sideMenuInput.waitFor({ state: 'visible', timeout: 10000 });
     await sideMenuInput.fill(sourceFolder);
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(1500); // 検索結果が出るまで待つ
 
-    // 「フォルダ」タブをクリックして絞り込む
-    await page.getByText('フォルダ', { exact: true }).last().click();
+    // 「フォルダ」タブ：ダイアログスコープ内で待ってからクリック（ページ内のフォルダ名と混同しないため）
+    const searchDialog2 = page.locator('div[role="dialog"]').first();
+    const folderTab2 = searchDialog2.getByText('フォルダ', { exact: true });
+    await folderTab2.waitFor({ state: 'visible', timeout: 10000 });
+    await folderTab2.click();
     await page.waitForTimeout(1000);
 
     // 検索結果のmark要素をクリックしてフォルダへ移動
     console.log(`  - 検索結果から「${sourceFolder}」をクリックします。`);
-    await page.locator('mark').filter({ hasText: sourceFolder }).first().click();
+    const markResult = page.locator('mark').filter({ hasText: sourceFolder }).first();
+    await markResult.waitFor({ state: 'visible', timeout: 10000 });
+    await markResult.click();
     await page.waitForTimeout(3000);
 
     // =========================================================
@@ -254,19 +259,21 @@ const axios = require('axios');
     await page.waitForLoadState('load');
     await page.waitForTimeout(2000);
 
-    // 新UI: 「検索」ボタン廃止。inputに直接入力
+    // 「検索」スパンをクリックして検索ダイアログを開く
     console.log(`  - 複製先フォルダ「${destFolder}」を検索します。`);
-    // 「検索」スパンをクリックして検索パネルを開く
     await page.getByText('検索', { exact: true }).first().click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(800);
 
     const sideInputForUrl = page.locator('input[placeholder*="検索"]').first();
     await sideInputForUrl.waitFor({ state: 'visible', timeout: 10000 });
     await sideInputForUrl.fill(destFolder);
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(1500); // 検索結果が出るまで待つ
 
-    // 「フォルダ」タブをクリックして絞り込む
-    await page.getByText('フォルダ', { exact: true }).last().click();
+    // 「フォルダ」タブ：ダイアログスコープ内で待ってからクリック
+    const searchDialog6 = page.locator('div[role="dialog"]').first();
+    const folderTab6 = searchDialog6.getByText('フォルダ', { exact: true });
+    await folderTab6.waitFor({ state: 'visible', timeout: 10000 });
+    await folderTab6.click();
     await page.waitForTimeout(1000);
 
     // 検索結果のmark要素をクリックしてフォルダへ移動

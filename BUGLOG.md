@@ -16,6 +16,24 @@ Step 2・Step 6 の input fill 前に `page.getByText('検索', { exact: true })
 
 ---
 
+## [2026-06-22] #027 — `duplicate_page_task.js` Step 2/6「フォルダ」タブクリックがページ内フォルダ名にマッチしてタイムアウト
+
+**エラー内容**
+```
+locator.click: Timeout 30000ms exceeded.
+  - waiting for getByText('フォルダ', { exact: true }).last()
+```
+
+**原因**
+`page.getByText('フォルダ', { exact: true }).last()` がページ内に64個ある `list-menu-item` の中の「フォルダ」というフォルダ名にマッチしており、検索ダイアログ内の「フォルダ」タブではなく別の要素を待っていた。また入力後の検索結果表示の待機が不足していた。
+
+**修正**
+- `div[role="dialog"]` スコープ内で `getByText('フォルダ')` を限定し、ページ内のフォルダ名との混同を回避
+- `waitFor({ state: 'visible', timeout: 10000 })` でタブ出現を待ってからクリック
+- `fill()` 後の待機を 1000ms → 1500ms に延長
+
+---
+
 ## [2026-06-22] #025 — `duplicate_page_task.js` Step 2/6 の「検索」ボタン廃止に対応（最終修正）
 
 **エラー内容**

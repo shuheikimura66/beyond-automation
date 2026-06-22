@@ -1,5 +1,21 @@
 # Bug Fix Log — beyond-automation / task.js
 
+## [2026-06-22] #026 — `duplicate_page_task.js` Step 2/6 の検索inputが直接アクセス不可（クリックが必要）
+
+**エラー内容**
+```
+locator.waitFor: Timeout 10000ms exceeded.
+  - waiting for locator('input[placeholder*="検索"]').first() to be visible
+```
+
+**原因**
+「検索」は `<span class="css-1xdhyk6 e1u6usw30">検索</span>` をクリックして初めて検索パネルが開く仕様。inputはパネルを開くまで非表示。
+
+**修正**
+Step 2・Step 6 の input fill 前に `page.getByText('検索', { exact: true }).first().click()` を追加して検索パネルを開いてからinputに入力するよう変更。
+
+---
+
 ## [2026-06-22] #025 — `duplicate_page_task.js` Step 2/6 の「検索」ボタン廃止に対応（最終修正）
 
 **エラー内容**

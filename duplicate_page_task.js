@@ -108,13 +108,18 @@ const axios = require('axios');
     await page.waitForLoadState('load');
     await page.waitForTimeout(2000);
 
-    // 新UI: 「検索」ボタン廃止。inputに直接入力
+    // 新UI: 「検索」スパンをクリックして検索パネルを開く
+    console.log(`  - 「検索」をクリックして検索パネルを開きます。`);
+    await page.getByText('検索', { exact: true }).first().click();
+    await page.waitForTimeout(500);
+
+    // inputに入力
     const sideMenuInput = page.locator('input[placeholder*="検索"]').first();
     await sideMenuInput.waitFor({ state: 'visible', timeout: 10000 });
     await sideMenuInput.fill(sourceFolder);
     await page.waitForTimeout(1000);
 
-    // 新UI: 「フォルダ」タブをクリックしてフォルダに絞り込む（モーダル内 = .last()）
+    // 「フォルダ」タブをクリックして絞り込む
     await page.getByText('フォルダ', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
@@ -251,12 +256,16 @@ const axios = require('axios');
 
     // 新UI: 「検索」ボタン廃止。inputに直接入力
     console.log(`  - 複製先フォルダ「${destFolder}」を検索します。`);
+    // 「検索」スパンをクリックして検索パネルを開く
+    await page.getByText('検索', { exact: true }).first().click();
+    await page.waitForTimeout(500);
+
     const sideInputForUrl = page.locator('input[placeholder*="検索"]').first();
     await sideInputForUrl.waitFor({ state: 'visible', timeout: 10000 });
     await sideInputForUrl.fill(destFolder);
     await page.waitForTimeout(1000);
 
-    // 新UI: 「フォルダ」タブをクリックしてフォルダに絞り込む（モーダル内 = .last()）
+    // 「フォルダ」タブをクリックして絞り込む
     await page.getByText('フォルダ', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 

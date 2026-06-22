@@ -113,14 +113,14 @@ const axios = require('axios');
     await page.getByRole('button', { name: /^検索$/ }).first().click();
     await page.waitForTimeout(800);
 
-    // XPath指定でinputを取得してsourceFolderを入力
-    const sideMenuInput = page.locator('xpath=//*[@data-testid="side-menu"]/div[1]/div[1]/div/div/label/input');
+    // モーダル内の検索inputを取得してsourceFolderを入力
+    const sideMenuInput = page.locator('input[placeholder*="検索"]').first();
     await sideMenuInput.waitFor({ state: 'visible', timeout: 5000 });
     await sideMenuInput.fill(sourceFolder);
     await page.waitForTimeout(1000);
 
-    // 新UI: 「フォルダ」タブをクリックしてフォルダに絞り込む
-    await page.locator('[data-testid="side-menu"]').getByText('フォルダ', { exact: true }).click();
+    // 新UI: 「フォルダ」タブをクリックしてフォルダに絞り込む（モーダル内 = .last()）
+    await page.getByText('フォルダ', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
     // 検索結果のmark要素をクリックしてフォルダへ移動
@@ -259,15 +259,15 @@ const axios = require('axios');
     await page.getByRole('button', { name: /^検索$/ }).first().click();
     await page.waitForTimeout(800);
 
-    // destFolder をサイドメニューで検索
+    // destFolder をモーダル内で検索
     console.log(`  - 複製先フォルダ「${destFolder}」を検索します。`);
-    const sideInputForUrl = page.locator('xpath=//*[@data-testid="side-menu"]/div[1]/div[1]/div/div/label/input');
+    const sideInputForUrl = page.locator('input[placeholder*="検索"]').first();
     await sideInputForUrl.waitFor({ state: 'visible', timeout: 5000 });
     await sideInputForUrl.fill(destFolder);
     await page.waitForTimeout(1000);
 
-    // 新UI: 「フォルダ」タブをクリックしてフォルダに絞り込む
-    await page.locator('[data-testid="side-menu"]').getByText('フォルダ', { exact: true }).click();
+    // 新UI: 「フォルダ」タブをクリックしてフォルダに絞り込む（モーダル内 = .last()）
+    await page.getByText('フォルダ', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
     // 検索結果のmark要素をクリックしてフォルダへ移動

@@ -191,15 +191,15 @@ const axios = require('axios');
     await page.getByRole('button', { name: /^検索$/ }).first().click();
     await page.waitForTimeout(800);
 
-    // 検索inputで「新しいフォルダ」を入力
+    // モーダル内の検索inputで「新しいフォルダ」を入力
     console.log(`  - 「新しいフォルダ」を検索します。`);
-    const sideMenuInput = page.locator('xpath=//*[@data-testid="side-menu"]/div[1]/div[1]/div/div/label/input');
+    const sideMenuInput = page.locator('input[placeholder*="検索"]').first();
     await sideMenuInput.waitFor({ state: 'visible', timeout: 5000 });
     await sideMenuInput.fill('新しいフォルダ');
     await page.waitForTimeout(1000);
 
-    // 新UI: 「フォルダ」タブをクリックしてフォルダに絞り込む
-    await page.locator('[data-testid="side-menu"]').getByText('フォルダ', { exact: true }).click();
+    // 新UI: 「フォルダ」タブをクリックしてフォルダに絞り込む（モーダル内 = .last()）
+    await page.getByText('フォルダ', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
     // 検索結果にhoverして3ドットボタンを出現させる
@@ -228,10 +228,10 @@ const axios = require('axios');
     // =========================================================
     console.log(`\n[Step 3] 原本フォルダ「${sourceFolder}」を検索します。`);
 
-    // 検索パネルが閉じていれば再度開く
-    const sideMenuInput3 = page.locator('xpath=//*[@data-testid="side-menu"]/div[1]/div[1]/div/div/label/input');
+    // モーダルが閉じていれば再度開く
+    const sideMenuInput3 = page.locator('input[placeholder*="検索"]').first();
     if (!(await sideMenuInput3.isVisible({ timeout: 1500 }).catch(() => false))) {
-      console.log(`  - 「検索」ボタンをクリックして検索パネルを開きます。`);
+      console.log(`  - 「検索」ボタンをクリックしてモーダルを開きます。`);
       await page.getByRole('button', { name: /^検索$/ }).first().click();
       await page.waitForTimeout(800);
     }
@@ -241,8 +241,8 @@ const axios = require('axios');
     await sideMenuInput3.fill(sourceFolder);
     await page.waitForTimeout(1000);
 
-    // 新UI: 「フォルダ」タブをクリックしてフォルダに絞り込む
-    await page.locator('[data-testid="side-menu"]').getByText('フォルダ', { exact: true }).click();
+    // 新UI: 「フォルダ」タブをクリックしてフォルダに絞り込む（モーダル内 = .last()）
+    await page.getByText('フォルダ', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
     // 検索結果のmark要素をクリックしてフォルダへ移動

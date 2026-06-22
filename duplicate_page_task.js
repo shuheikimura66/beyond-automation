@@ -131,16 +131,26 @@ const axios = require('axios');
     const markResult = page.locator('[data-testid="list-menu-item"] mark').first();
     await markResult.waitFor({ state: 'visible', timeout: 10000 });
     await markResult.click();
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(2000);
+
+    // 検索ポップアップを閉じる（Escapeキー）
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(1000);
 
     // =========================================================
-    // [Step 3] 記事検索（task.js と同じセレクター）
+    // [Step 3] 記事検索（フォルダ内検索）
     // =========================================================
     console.log(`\n[Step 3] フォルダ内で記事「${sourceArticle}」を検索します。`);
 
-    await page.locator('button.efy50tl0').click();
-    await page.waitForTimeout(500);
-    await page.locator('div.css-68s747 input').first().fill(sourceArticle);
+    // フォルダ内検索inputを探す（button.efy50tl0 は生成クラスで変更されるため安定セレクターに変更）
+    const folderSearchInput = page.locator('input[placeholder*="フォルダ内検索"], input[placeholder*="検索"]').last();
+    if (!(await folderSearchInput.isVisible({ timeout: 2000 }).catch(() => false))) {
+      // inputが非表示なら検索トグルボタンをクリック
+      await page.locator('button.efy50tl0').click().catch(() => {});
+      await page.waitForTimeout(500);
+    }
+    await folderSearchInput.waitFor({ state: 'visible', timeout: 10000 });
+    await folderSearchInput.fill(sourceArticle);
     await page.waitForTimeout(3000);
 
     // =========================================================

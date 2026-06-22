@@ -32,6 +32,24 @@ locator.waitFor: Timeout 10000ms exceeded.
 
 ---
 
+## [2026-06-22] #030 — Step 3 `button.efy50tl0` タイムアウト＋検索ポップアップが未クローズ
+
+**エラー内容**
+```
+locator.click: Timeout 30000ms exceeded.
+  - waiting for locator('button.efy50tl0')
+```
+
+**原因**
+1. `button.efy50tl0` は生成クラス名で変更されていた
+2. Step 2 の検索ポップアップ（dialog）が mark クリック後も残っており、背後のボタンを遮蔽していた可能性
+
+**修正**
+- mark クリック後に `Escape` でポップアップを明示的に閉じる
+- Step 3 のフォルダ内検索を `input[placeholder*="フォルダ内検索"]` で直接取得するよう変更（inputが非表示のときのみ旧 `button.efy50tl0` をフォールバックとして試みる）
+
+---
+
 ## [2026-06-22] #029 — Chrome DevTools Recorder JSON に基づきStep 2/6のセレクターをJSONフローに統一
 
 **対象ファイル**

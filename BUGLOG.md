@@ -32,6 +32,20 @@ locator.waitFor: Timeout 10000ms exceeded.
 
 ---
 
+## [2026-06-22] #029 — Chrome DevTools Recorder JSON に基づきStep 2/6のセレクターをJSONフローに統一
+
+**対象ファイル**
+`duplicate_page_task.js`（Step 2, Step 6）
+
+**変更内容**
+Chrome DevTools Recorder で録画した `1.json` のフローに合わせてセレクターを修正：
+- 検索ボタン: `getByText('検索')` → `[data-testid="side-menu"] button` （JSON xpath準拠）
+- input: `input[placeholder*="検索"]` → `input`（JSON: change event on input）
+- フォルダタブ: dialog スコープ → `span` + `/^フォルダ/` 前方一致の `.last()` （JSON: `div:nth-of-type(2) > span`、text=フォルダ1）
+- mark: `mark` → `[data-testid="list-menu-item"] mark` （JSON: `[data-testid="list-menu-item"]/div[2]/span/mark`）
+
+---
+
 ## [2026-06-22] #027 — `duplicate_page_task.js` Step 2/6「フォルダ」タブクリックがページ内フォルダ名にマッチしてタイムアウト
 
 **エラー内容**

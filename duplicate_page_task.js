@@ -108,27 +108,27 @@ const axios = require('axios');
     await page.waitForLoadState('load');
     await page.waitForTimeout(2000);
 
-    // 「検索」スパンをクリックして検索ダイアログを開く
-    console.log(`  - 「検索」をクリックして検索ダイアログを開きます。`);
-    await page.getByText('検索', { exact: true }).first().click();
+    // 検索ボタン: [data-testid="side-menu"] の button（JSON: xpath/[data-testid="side-menu"]/div[1]/button/span）
+    console.log(`  - 「検索」をクリックして検索ポップアップを開きます。`);
+    await page.locator('[data-testid="side-menu"] button').first().click();
     await page.waitForTimeout(800);
 
-    // inputに入力（ダイアログが開いてから）
-    const sideMenuInput = page.locator('input[placeholder*="検索"]').first();
+    // input に入力（JSON: change event on input）
+    const sideMenuInput = page.locator('input').first();
     await sideMenuInput.waitFor({ state: 'visible', timeout: 10000 });
     await sideMenuInput.fill(sourceFolder);
-    await page.waitForTimeout(1500); // 検索結果が出るまで待つ
+    await page.waitForTimeout(1500);
 
-    // 「フォルダ」タブ：ダイアログスコープ内で前方一致（「フォルダ -」「フォルダ 3」も対応）
-    const searchDialog2 = page.locator('div[role="dialog"]').first();
-    const folderTab2 = searchDialog2.getByText(/^フォルダ/).first();
+    // 「フォルダ」タブ: /^フォルダ/ で前方一致（「フォルダ1」「フォルダ -」に対応）
+    // JSON: div:nth-of-type(2) > span、text/フォルダ1
+    const folderTab2 = page.locator('span').filter({ hasText: /^フォルダ/ }).last();
     await folderTab2.waitFor({ state: 'visible', timeout: 10000 });
     await folderTab2.click();
     await page.waitForTimeout(1000);
 
-    // 検索結果のmark要素をクリックしてフォルダへ移動
+    // mark要素をクリック（JSON: [data-testid="list-menu-item"]/div[2]/span/mark）
     console.log(`  - 検索結果から「${sourceFolder}」をクリックします。`);
-    const markResult = page.locator('mark').filter({ hasText: sourceFolder }).first();
+    const markResult = page.locator('[data-testid="list-menu-item"] mark').first();
     await markResult.waitFor({ state: 'visible', timeout: 10000 });
     await markResult.click();
     await page.waitForTimeout(3000);
@@ -259,26 +259,27 @@ const axios = require('axios');
     await page.waitForLoadState('load');
     await page.waitForTimeout(2000);
 
-    // 「検索」スパンをクリックして検索ダイアログを開く
+    // 検索ボタン: [data-testid="side-menu"] の button
     console.log(`  - 複製先フォルダ「${destFolder}」を検索します。`);
-    await page.getByText('検索', { exact: true }).first().click();
+    await page.locator('[data-testid="side-menu"] button').first().click();
     await page.waitForTimeout(800);
 
-    const sideInputForUrl = page.locator('input[placeholder*="検索"]').first();
+    const sideInputForUrl = page.locator('input').first();
     await sideInputForUrl.waitFor({ state: 'visible', timeout: 10000 });
     await sideInputForUrl.fill(destFolder);
-    await page.waitForTimeout(1500); // 検索結果が出るまで待つ
+    await page.waitForTimeout(1500);
 
-    // 「フォルダ」タブ：ダイアログスコープ内で前方一致
-    const searchDialog6 = page.locator('div[role="dialog"]').first();
-    const folderTab6 = searchDialog6.getByText(/^フォルダ/).first();
+    // 「フォルダ」タブ: /^フォルダ/ 前方一致
+    const folderTab6 = page.locator('span').filter({ hasText: /^フォルダ/ }).last();
     await folderTab6.waitFor({ state: 'visible', timeout: 10000 });
     await folderTab6.click();
     await page.waitForTimeout(1000);
 
-    // 検索結果のmark要素をクリックしてフォルダへ移動
+    // mark要素をクリック（JSON: [data-testid="list-menu-item"]/div[2]/span/mark）
     console.log(`  - フォルダ「${destFolder}」をクリックします。`);
-    await page.locator('mark').filter({ hasText: destFolder }).first().click();
+    const markForUrl = page.locator('[data-testid="list-menu-item"] mark').first();
+    await markForUrl.waitFor({ state: 'visible', timeout: 10000 });
+    await markForUrl.click();
     await page.waitForTimeout(3000);
 
     // コンテンツエリアの検索ボタンで記事名を検索（Step 3 と同じセレクター）

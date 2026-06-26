@@ -33,22 +33,30 @@ const axios = require('axios');
     console.log(`=========================================`);
 
     // =========================================================
-    // [Step 1] ログイン処理
+    // [Step 1] ログイン処理（堅牢化バージョン）
     // =========================================================
     console.log(`\n[Step 1] ターゲットURLにアクセスします: ${targetUrl}`);
     await page.goto(targetUrl);
-    await page.waitForLoadState('load');
-    await page.waitForTimeout(3000);
+    
+    // ★修正: 3秒の固定待機ではなく、ログイン窓かダッシュボードが出るまで最大15秒待機する
+    try {
+        await page.waitForSelector('input[name="email"], input[type="email"], [data-testid="list-menu-item"]', { timeout: 15000 });
+    } catch(e) {
+        console.log(`  => ⚠️ ページ読み込み遅延、またはBot検知(Cloudflare等)の可能性があります。`);
+    }
 
-    const emailInput = page.locator('input[name="email"]');
+    // ★修正: name属性が変わっても対応できるように柔軟なセレクターに変更
+    const emailInput = page.locator('input[name="email"], input[type="email"]').first();
+    const passInput = page.locator('input[name="password"], input[type="password"]').first();
+    const loginBtn = page.locator('button:has-text("ログイン"), input[type="submit"], button[type="submit"]').first();
 
     if (await emailInput.isVisible().catch(() => false)) {
       console.log(`  => 🔑 ログイン画面を検知。一度ログインします。`);
       await emailInput.fill(process.env.SQUADBEYOND_ID);
       await page.waitForTimeout(500);
-      await page.locator('input[name="password"]').fill(process.env.SQUADBEYOND_PASS);
+      await passInput.fill(process.env.SQUADBEYOND_PASS);
       await page.waitForTimeout(500);
-      await page.getByRole('button', { name: 'ログイン' }).first().click();
+      await loginBtn.click();
       await page.waitForLoadState('load');
       await page.waitForTimeout(4000);
     }
@@ -72,12 +80,16 @@ const axios = require('axios');
     }
 
     console.log(`\n[Step 1.2] クリーンな状態で再度ログインを実行します。`);
+    try {
+        await page.waitForSelector('input[name="email"], input[type="email"], [data-testid="list-menu-item"]', { timeout: 10000 });
+    } catch(e) {}
+    
     if (await emailInput.isVisible().catch(() => false)) {
       await emailInput.fill(process.env.SQUADBEYOND_ID);
       await page.waitForTimeout(500);
-      await page.locator('input[name="password"]').fill(process.env.SQUADBEYOND_PASS);
+      await passInput.fill(process.env.SQUADBEYOND_PASS);
       await page.waitForTimeout(500);
-      await page.getByRole('button', { name: 'ログイン' }).first().click();
+      await loginBtn.click();
       await page.waitForLoadState('load');
       await page.waitForTimeout(4000);
     }
@@ -148,7 +160,7 @@ const axios = require('axios');
     await page.waitForTimeout(5000);
 
     // =========================================================
-    // ★大改修 [Step 2.5] フォルダ名称変更（検索パネル → 新タブ → 右パネル編集）
+    // [Step 2.5] フォルダ名称変更（検索パネル → 新タブ → 右パネル編集）
     // =========================================================
     console.log(`\n[Step 2.5] 作成したフォルダを「${destFolder}」に名称変更します。`);
     await page.locator('div[role="dialog"]').waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {});
@@ -159,7 +171,6 @@ const axios = require('axios');
     await page.waitForLoadState('load');
     await page.waitForTimeout(2000);
 
-    // 1. 検索パネルを開く
     console.log(`  - 「検索」をクリックして検索パネルを開きます。`);
     const searchTrigger1 = page.locator('input[placeholder*="検索"], [placeholder*="検索"]').first();
     if (await searchTrigger1.isVisible({ timeout: 3000 }).catch(() => false)) {
@@ -169,7 +180,6 @@ const axios = require('axios');
     }
     await page.waitForTimeout(1500);
 
-    // 2. 「新しいフォルダ」を検索
     console.log(`  - 「新しいフォルダ」を検索します。`);
     const sideMenuInput = page.locator('div[role="dialog"] input').first().or(page.locator('input').last());
     await sideMenuInput.waitFor({ state: 'visible', timeout: 10000 });
@@ -179,7 +189,6 @@ const axios = require('axios');
     await page.locator('span').filter({ hasText: /^フォルダ/ }).last().click();
     await page.waitForTimeout(1000);
 
-    // 3. 検索結果をクリックして新タブに遷移
     console.log(`  - 検索結果の「新しいフォルダ」をクリックし、新タブ遷移を待機します。`);
     const newFolderMark = page.locator('mark').filter({ hasText: '新しいフォルダ' }).first();
     await newFolderMark.waitFor({ state: 'visible', timeout: 10000 });
@@ -192,27 +201,25 @@ const axios = require('axios');
     await page.waitForLoadState('load');
     await page.waitForTimeout(3000);
 
-    // 4. 新タブで左サイドバーのフォルダをクリックして右設定パネルを開く
     console.log(`  - 新タブのサイドバーで「新しいフォルダ」をクリックし、設定パネルを開きます。`);
     const targetNewFolder = page.locator('[data-testid="list-menu-item"]').filter({ hasText: '新しいフォルダ' }).first();
     await targetNewFolder.waitFor({ state: 'visible', timeout: 10000 });
     await targetNewFolder.click();
-    await page.waitForTimeout(1500); // 右パネルがスライドインするのを待つ
+    await page.waitForTimeout(1500); 
 
-    // 5. 右パネルの「名前変更」からインプットに入力
-    console.log(`  - 右パネルの「名前変更」欄でフォルダ名を入力して保存します。`);
+    console.log(`  - 右パネルの「名称変更」欄でフォルダ名を入力して保存します。`);
     try {
-        // 「名前変更」というテキストをクリックして、Tabキーで直下のインプットへ移動する（DOM構造に依存しない安全な方法）
-        const renameLabel = page.getByText('名前変更', { exact: true }).last();
+        // ★修正: 「名前変更」ではなく「名称変更」
+        const renameLabel = page.getByText('名称変更', { exact: true }).last();
         await renameLabel.waitFor({ state: 'visible', timeout: 5000 });
+        await renameLabel.scrollIntoViewIfNeeded(); // 見えない場合はスクロール
         await renameLabel.click();
-        await page.keyboard.press('Tab');
+        await page.waitForTimeout(800);
     } catch (e) {
-        // 見つからなかった場合は画面上の最後のインプット（通常は右パネル）を狙う
+        console.log(`  => ⚠️ 「名称変更」ボタンが見つかりません。フォールバックで直接inputをクリックします。`);
         await page.locator('input').last().click();
     }
 
-    await page.waitForTimeout(500);
     await page.keyboard.press('Control+A');
     await page.keyboard.press('Meta+A'); 
     await page.keyboard.press('Backspace');

@@ -7,7 +7,6 @@ const axios = require('axios');
     viewport: { width: 1372, height: 841 },
     permissions: ['clipboard-read', 'clipboard-write']
   });
-  // ★const から let に変更（後で新しいタブに上書きするため）
   let page = await context.newPage();
 
   // =========================================================
@@ -121,7 +120,7 @@ const axios = require('axios');
     const sideMenuInput = page.locator('div[role="dialog"] input').first().or(page.locator('input').last());
     await sideMenuInput.waitFor({ state: 'visible', timeout: 10000 });
     await sideMenuInput.fill(sourceFolder);
-    await page.waitForTimeout(2000); // 検索結果の反映待機
+    await page.waitForTimeout(2000); 
 
     const folderTab2 = page.locator('span').filter({ hasText: /^フォルダ/ }).last();
     await folderTab2.waitFor({ state: 'visible', timeout: 10000 });
@@ -132,13 +131,12 @@ const axios = require('axios');
     const markResult = page.locator('[data-testid="list-menu-item"] mark').first();
     await markResult.waitFor({ state: 'visible', timeout: 10000 });
     
-    // ★新タブ遷移の対応（Step 2）
     console.log(`  => 📄 新しいタブが開くのを待機します...`);
     const [newPageSource] = await Promise.all([
       context.waitForEvent('page'),
       markResult.click()
     ]);
-    page = newPageSource; // これ以降、RPAの操作対象を新しいタブに切り替える
+    page = newPageSource;
     await page.waitForLoadState('load');
     await page.waitForTimeout(3000);
 
@@ -189,10 +187,13 @@ const axios = require('axios');
 
     console.log(`  - 2. 複製先フォルダを選択します。`);
     await activeModal.locator('section:nth-of-type(2) div.css-18ji2p4 > div').click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1000); // 描画待ちを少し延長
 
     console.log(`  - 検索窓に「${destFolder}」を入力します。`);
-    await page.locator('div:nth-of-type(10) input').fill(destFolder);
+    // ★ JSONを元に修正： nth-of-type をやめ、最後に追加された input を狙う
+    const destFolderSearchInput = page.locator('input').last();
+    await destFolderSearchInput.waitFor({ state: 'visible', timeout: 5000 });
+    await destFolderSearchInput.fill(destFolder);
     await page.waitForTimeout(2000);
 
     console.log(`  - グループ「${groupListDest}」をクリックして展開します。`);
@@ -275,13 +276,12 @@ const axios = require('axios');
     const markForUrl = page.locator('[data-testid="list-menu-item"] mark').first();
     await markForUrl.waitFor({ state: 'visible', timeout: 10000 });
     
-    // ★新タブ遷移の対応（Step 6）
     console.log(`  => 📄 新しいタブが開くのを待機します...`);
     const [newPageDest] = await Promise.all([
       context.waitForEvent('page'),
       markForUrl.click()
     ]);
-    page = newPageDest; // これ以降、RPAの操作対象を新しいタブに切り替える
+    page = newPageDest;
     await page.waitForLoadState('load');
     await page.waitForTimeout(3000);
 

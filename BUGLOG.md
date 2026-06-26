@@ -1,5 +1,28 @@
 # Bug Fix Log — beyond-automation / task.js
 
+## [2026-06-26] #035 — duplicate_page_task.js: フルアウト選択を位置依存→テキスト検索に変更
+
+**対象ファイル**
+`duplicate_page_task.js` (Step 1.2.5、Step 1.3)
+
+**問題**
+フルアウトの位置（何番目か）が毎回変わるため、`li:nth-of-type(3)`等の位置指定では外れる。
+また #034 の前工程（ワークスペース選択）も、フルアウトが既に見える場合には不要なため無駄に実行されていた。
+
+**修正**
+- Step 1.3: `li:nth-of-type(3)` を廃止。`filter({ hasText: 'フルアウト' })` でテキスト検索に変更
+- Step 1.2.5: フルアウトが直接見えるかを先にチェックし、見えない場合のみ前工程（ワークスペース選択）を実行
+
+```js
+// Step 1.3（修正後）
+const fulloutItem = page.locator('[data-testid="list-menu-item"]').filter({ hasText: 'フルアウト' }).first();
+if (await fulloutItem.isVisible({ timeout: 10000 }).catch(() => false)) {
+  await fulloutItem.locator('xpath=div[1]/div/svg').click().catch(() => fulloutItem.click());
+}
+```
+
+---
+
 ## [2026-06-26] #034 — duplicate_page_task.js: Step1.2.5を録画6.jsonで完全書き直し
 
 **対象ファイル**

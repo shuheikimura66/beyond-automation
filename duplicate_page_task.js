@@ -104,41 +104,47 @@ const axios = require('axios');
       await page.waitForTimeout(4000);
     }
 
-    console.log(`\n[Step 1.2.5] ログイン後のワークスペース選択（録画6.json対応）`);
+    console.log(`\n[Step 1.2.5] ワークスペース前工程（フルアウトが未表示の場合のみ実行）`);
     try {
-      // 録画6.json step6/7: ログイン直後にlist-menu-itemが出たらワークスペース選択フロー
-      // テキスト依存なし（CSSクラスも不使用）、data-testid + xpath位置で指定
-      const firstListItem = page.locator('[data-testid="list-menu-item"]').first();
-      if (await firstListItem.isVisible({ timeout: 5000 }).catch(() => false)) {
-        console.log(`  - ワークスペース選択画面を検知`);
-        // div[2]/div/div[1] を2回クリック（録画step6/7）
-        const clickTarget = firstListItem.locator('xpath=div[2]/div/div[1]');
-        await clickTarget.click({ timeout: 3000 }).catch(() => firstListItem.click());
-        await page.waitForTimeout(500);
-        await clickTarget.click({ timeout: 3000 }).catch(() => firstListItem.click());
-        await page.waitForTimeout(1500);
+      // まず「フルアウト」テキストのlist-menu-itemが直接見えるか確認（位置依存なし）
+      const fulloutCheck = page.locator('[data-testid="list-menu-item"]').filter({ hasText: 'フルアウト' }).first();
+      const fulloutAlreadyVisible = await fulloutCheck.isVisible({ timeout: 3000 }).catch(() => false);
 
-        // 録画6.json step8: Radixポップオーバーから選択 → navigation発生
-        // xpath: //*[contains(@id,"radix-")]/div/div[2]/div[1]/div[2]/div
-        await page.locator('xpath=//*[contains(@id,"radix-")]/div/div[2]/div[1]/div[2]/div')
-          .first().click({ timeout: 5000 });
-        await page.waitForLoadState('load');
-        await page.waitForTimeout(3000);
-        console.log(`  => ✅ ワークスペース選択完了. URL: ${page.url()}`);
+      if (!fulloutAlreadyVisible) {
+        // フルアウトが見えない → ワークスペース選択の前工程が必要
+        const firstListItem = page.locator('[data-testid="list-menu-item"]').first();
+        if (await firstListItem.isVisible({ timeout: 5000 }).catch(() => false)) {
+          console.log(`  - ワークスペース選択画面を検知。前工程を実行します。`);
+          // 録画6.json step6/7: div[2]/div/div[1] を2回クリック
+          const clickTarget = firstListItem.locator('xpath=div[2]/div/div[1]');
+          await clickTarget.click({ timeout: 3000 }).catch(() => firstListItem.click());
+          await page.waitForTimeout(500);
+          await clickTarget.click({ timeout: 3000 }).catch(() => firstListItem.click());
+          await page.waitForTimeout(1500);
+          // 録画6.json step8: Radixポップオーバーから選択 → navigation発生
+          await page.locator('xpath=//*[contains(@id,"radix-")]/div/div[2]/div[1]/div[2]/div')
+            .first().click({ timeout: 5000 });
+          await page.waitForLoadState('load');
+          await page.waitForTimeout(3000);
+          console.log(`  => ✅ 前工程完了. URL: ${page.url()}`);
+        } else {
+          console.log(`  => ⚠️ 前工程対象画面なし（スキップ）`);
+        }
       } else {
-        console.log(`  => ⚠️ ワークスペース選択画面なし（スキップ）`);
+        console.log(`  => フルアウト直接表示。前工程スキップ`);
       }
     } catch(e) {
-      console.log(`  => ⚠️ ワークスペース選択スキップ: ${e.message}`);
+      console.log(`  => ⚠️ 前工程スキップ: ${e.message}`);
     }
 
     console.log(`\n[Step 1.3] チーム「フルアウト」を選択します。`);
     try {
-      // 録画6.json step9: li:nth-of-type(3) > list-menu-item のSVGをクリック
-      const teamListItem = page.locator('li:nth-of-type(3) [data-testid="list-menu-item"]').first();
-      if (await teamListItem.isVisible({ timeout: 10000 }).catch(() => false)) {
-        await teamListItem.locator('xpath=div[1]/div/svg').click({ timeout: 3000 })
-          .catch(() => teamListItem.click());
+      // テキスト「フルアウト」で特定 → 位置に依存しない
+      const fulloutItem = page.locator('[data-testid="list-menu-item"]').filter({ hasText: 'フルアウト' }).first();
+      if (await fulloutItem.isVisible({ timeout: 10000 }).catch(() => false)) {
+        // SVGクリック（録画6.json step9）、失敗時はアイテム自体をクリック
+        await fulloutItem.locator('xpath=div[1]/div/svg').click({ timeout: 3000 })
+          .catch(() => fulloutItem.click());
         console.log(`  => ✅ フルアウト選択完了`);
         await page.waitForTimeout(5000);
         await page.waitForLoadState('load');

@@ -32,23 +32,35 @@ const axios = require('axios');
     console.log(`=========================================`);
 
     // =========================================================
-    // [Step 1] ログイン
+    // [Step 1] ログイン処理（人間らしい入力でフリーズ回避）
     // =========================================================
     console.log(`\n[Step 1] ターゲットURLにアクセスします: ${targetUrl}`);
     await page.goto(targetUrl);
-    await page.waitForLoadState('load');
-    await page.waitForTimeout(3000);
+    
+    try {
+        await page.waitForSelector('input[name="email"], input[type="email"], [data-testid="list-menu-item"]', { timeout: 15000 });
+    } catch(e) {}
 
-    const emailInput = page.locator('input[name="email"]');
+    const emailInput = page.locator('input[name="email"], input[type="email"]').first();
+    const passInput = page.locator('input[name="password"], input[type="password"]').first();
 
+    // 1回目のログイン
     if (await emailInput.isVisible().catch(() => false)) {
       console.log(`  => 🔑 ログイン画面を検知。一度ログインします。`);
+      await emailInput.click();
       await emailInput.fill(process.env.SQUADBEYOND_ID);
       await page.waitForTimeout(500);
-      await page.locator('input[name="password"]').fill(process.env.SQUADBEYOND_PASS);
-      await page.waitForTimeout(500);
-      await page.getByRole('button', { name: 'ログイン' }).first().click();
-      await page.waitForLoadState('load');
+      
+      await passInput.click();
+      await passInput.fill(process.env.SQUADBEYOND_PASS);
+      // ★システムの文字認識を待つ（フリーズ対策）
+      await page.waitForTimeout(1000); 
+      
+      console.log(`  => ⏳ Enterキーでログインを実行し、通信を待機します...`);
+      // ★ボタンクリックではなくEnterキーで自然に送信する
+      await passInput.press('Enter'); 
+      
+      await page.waitForLoadState('networkidle').catch(() => {});
       await page.waitForTimeout(4000);
     }
 
@@ -61,7 +73,8 @@ const axios = require('axios');
         await page.locator('[data-testid="list-menu-item"]').nth(-2).click();
       }
       await page.waitForTimeout(1500);
-      await page.getByText('ログアウト', { exact: true }).last().click();
+      const logoutBtn = page.getByText('ログアウト', { exact: true }).last();
+      await logoutBtn.click();
       console.log(`  => ✅ ログアウト完了`);
       await page.waitForLoadState('load');
       await page.waitForTimeout(3000);
@@ -70,19 +83,31 @@ const axios = require('axios');
     }
 
     console.log(`\n[Step 1.2] クリーンな状態で再度ログインを実行します。`);
+    try {
+        await page.waitForSelector('input[name="email"], input[type="email"], [data-testid="list-menu-item"]', { timeout: 10000 });
+    } catch(e) {}
+    
+    // 2回目のログイン（同様にフリーズ対策を適用）
     if (await emailInput.isVisible().catch(() => false)) {
+      await emailInput.click();
       await emailInput.fill(process.env.SQUADBEYOND_ID);
       await page.waitForTimeout(500);
-      await page.locator('input[name="password"]').fill(process.env.SQUADBEYOND_PASS);
-      await page.waitForTimeout(500);
-      await page.getByRole('button', { name: 'ログイン' }).first().click();
-      await page.waitForLoadState('load');
+      
+      await passInput.click();
+      await passInput.fill(process.env.SQUADBEYOND_PASS);
+      await page.waitForTimeout(1000); 
+      
+      console.log(`  => ⏳ Enterキーで再度ログインを実行します...`);
+      await passInput.press('Enter');
+      
+      await page.waitForLoadState('networkidle').catch(() => {});
       await page.waitForTimeout(4000);
     }
 
     console.log(`\n[Step 1.3] チーム「フルアウト」を選択します。`);
     try {
-      await page.locator('div').filter({ hasText: /^フルアウト$/ }).last().click();
+      const fulloutDiv = page.locator('div').filter({ hasText: /^フルアウト$/ }).last();
+      await fulloutDiv.click();
       console.log(`  => ✅ フルアウト選択完了`);
       await page.waitForTimeout(5000);
       await page.waitForLoadState('load');
@@ -187,10 +212,9 @@ const axios = require('axios');
 
     console.log(`  - 2. 複製先フォルダを選択します。`);
     await activeModal.locator('section:nth-of-type(2) div.css-18ji2p4 > div').click();
-    await page.waitForTimeout(1000); // 描画待ちを少し延長
+    await page.waitForTimeout(1000); 
 
     console.log(`  - 検索窓に「${destFolder}」を入力します。`);
-    // ★ JSONを元に修正： nth-of-type をやめ、最後に追加された input を狙う
     const destFolderSearchInput = page.locator('input').last();
     await destFolderSearchInput.waitFor({ state: 'visible', timeout: 5000 });
     await destFolderSearchInput.fill(destFolder);

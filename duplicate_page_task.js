@@ -63,6 +63,8 @@ const axios = require('axios');
       await page.waitForLoadState('networkidle').catch(() => {});
       await page.waitForTimeout(4000);
     }
+    await page.screenshot({ path: 'ss-01-after-first-login.png', fullPage: true });
+    console.log(`  => 📸 ss-01-after-first-login.png`);
 
     console.log(`\n[Step 1.1] システムバグ回避のため、強制ログアウトを実行します。`);
     try {
@@ -81,39 +83,46 @@ const axios = require('axios');
     } catch(e) {
       console.log(`  => ⚠️ ログアウトスキップ（すでにログアウト済み等）`);
     }
+    await page.screenshot({ path: 'ss-02-after-logout.png', fullPage: true });
+    console.log(`  => 📸 ss-02-after-logout.png`);
 
     console.log(`\n[Step 1.2] クリーンな状態で再度ログインを実行します。`);
     try {
         await page.waitForSelector('input[name="email"], input[type="email"], [data-testid="list-menu-item"]', { timeout: 10000 });
     } catch(e) {}
-    
+
     // 2回目のログイン（同様にフリーズ対策を適用）
     if (await emailInput.isVisible().catch(() => false)) {
       await emailInput.click();
       await emailInput.fill(process.env.SQUADBEYOND_ID);
       await page.waitForTimeout(500);
-      
+
       await passInput.click();
       await passInput.fill(process.env.SQUADBEYOND_PASS);
-      await page.waitForTimeout(1000); 
-      
+      await page.waitForTimeout(1000);
+
       console.log(`  => ⏳ Enterキーで再度ログインを実行します...`);
       await passInput.press('Enter');
-      
+
       await page.waitForLoadState('networkidle').catch(() => {});
       await page.waitForTimeout(4000);
     }
+    await page.screenshot({ path: 'ss-03-after-relogin.png', fullPage: true });
+    console.log(`  => 📸 ss-03-after-relogin.png  URL: ${page.url()}`);
 
     console.log(`\n[Step 1.2.5] ワークスペース前工程（フルアウトが未表示の場合のみ実行）`);
     try {
       // まず「フルアウト」テキストのlist-menu-itemが直接見えるか確認（位置依存なし）
       const fulloutCheck = page.locator('[data-testid="list-menu-item"]').filter({ hasText: 'フルアウト' }).first();
       const fulloutAlreadyVisible = await fulloutCheck.isVisible({ timeout: 3000 }).catch(() => false);
+      console.log(`  - フルアウト直接表示: ${fulloutAlreadyVisible}`);
 
       if (!fulloutAlreadyVisible) {
         // フルアウトが見えない → ワークスペース選択の前工程が必要
         const firstListItem = page.locator('[data-testid="list-menu-item"]').first();
-        if (await firstListItem.isVisible({ timeout: 5000 }).catch(() => false)) {
+        const listItemVisible = await firstListItem.isVisible({ timeout: 5000 }).catch(() => false);
+        console.log(`  - list-menu-item表示: ${listItemVisible}`);
+        if (listItemVisible) {
           console.log(`  - ワークスペース選択画面を検知。前工程を実行します。`);
           // 録画6.json step6/7: div[2]/div/div[1] を2回クリック
           const clickTarget = firstListItem.locator('xpath=div[2]/div/div[1]');
@@ -121,6 +130,8 @@ const axios = require('axios');
           await page.waitForTimeout(500);
           await clickTarget.click({ timeout: 3000 }).catch(() => firstListItem.click());
           await page.waitForTimeout(1500);
+          await page.screenshot({ path: 'ss-04-after-workspace-click.png', fullPage: true });
+          console.log(`  => 📸 ss-04-after-workspace-click.png`);
           // 録画6.json step8: Radixポップオーバーから選択 → navigation発生
           await page.locator('xpath=//*[contains(@id,"radix-")]/div/div[2]/div[1]/div[2]/div')
             .first().click({ timeout: 5000 });
@@ -133,8 +144,11 @@ const axios = require('axios');
       } else {
         console.log(`  => フルアウト直接表示。前工程スキップ`);
       }
+      await page.screenshot({ path: 'ss-05-after-workspace-step.png', fullPage: true });
+      console.log(`  => 📸 ss-05-after-workspace-step.png  URL: ${page.url()}`);
     } catch(e) {
       console.log(`  => ⚠️ 前工程スキップ: ${e.message}`);
+      await page.screenshot({ path: 'ss-05-after-workspace-step.png', fullPage: true });
     }
 
     console.log(`\n[Step 1.3] チーム「フルアウト」を選択します。`);
@@ -154,6 +168,8 @@ const axios = require('axios');
     } catch(e) {
       console.log(`  => ⚠️ フルアウト選択スキップ: ${e.message}`);
     }
+    await page.screenshot({ path: 'ss-06-after-fullout.png', fullPage: true });
+    console.log(`  => 📸 ss-06-after-fullout.png  URL: ${page.url()}`);
 
     console.log(`\n[Step 1.4] UIデザインの確認を行います。`);
     const newDesignBtn = page.locator('div, button').filter({ hasText: '新デザインを試す' }).last();

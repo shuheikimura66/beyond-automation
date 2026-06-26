@@ -1,5 +1,34 @@
 # Bug Fix Log — beyond-automation / task.js
 
+## [2026-06-26] #038 — duplicate_page_task.js: waitForSelector のセレクター修正 + Step 1.2でdisabledボタン対策
+
+**対象ファイル**
+`duplicate_page_task.js` (Step 1、Step 1.2)
+
+**問題（run #28235425632）**
+- ss-01/02 ともにログイン画面のまま
+- Step 1: `waitForSelector('input[type="email"]', state: 'detached')` が即座にresolve
+  → `input[type="email"]` がDOM上に存在しないため（実際のinputはtype属性が異なる）、Playwrightが「既にdetached」と判断し3秒で抜ける
+- Step 1.2: Step 1のloading中ボタン（disabled+MuiLoadingButton-loading）をclick()しようとして30秒タイムアウト
+
+**修正**
+- Step 1/1.2 の「ログイン完了待機」を `[data-testid="list-menu-item"]` の出現待ちに変更（timeout: 60s）
+  → ワークスペース選択画面が表示された = ログイン完了、という正のシグナルで待つ
+- Step 1.2: click()前に `[data-trackid="sign-in-form-login-button"]:not([disabled])` でボタンがenabledになるまで最大15s待機
+
+```js
+// Step 1（修正後）
+await page.getByRole('button', { name: 'ログイン' }).first().click();
+await page.waitForSelector('[data-testid="list-menu-item"]', { timeout: 60000 }).catch(...);
+
+// Step 1.2（修正後）
+await page.waitForSelector('[data-trackid="sign-in-form-login-button"]:not([disabled])', { timeout: 15000 }).catch(() => {});
+await page.getByRole('button', { name: 'ログイン' }).first().click();
+await page.waitForSelector('[data-testid="list-menu-item"]', { timeout: 60000 }).catch(...);
+```
+
+---
+
 ## [2026-06-26] #037 — duplicate_page_task.js: ログイン完了待機を waitForLoadState → waitForSelector(detached) に変更
 
 **対象ファイル**

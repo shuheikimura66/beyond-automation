@@ -55,11 +55,13 @@ const axios = require('axios');
       await passInput.fill(process.env.SQUADBEYOND_PASS);
       await page.waitForTimeout(1000);
 
-      console.log(`  => ⏳ ログインボタンをクリックしてログインフォームが消えるまで待機します...`);
+      console.log(`  => ⏳ ログインボタンをクリックしてワークスペース選択画面を待機します...`);
       await page.getByRole('button', { name: 'ログイン' }).first().click();
-      // ログインフォーム（メールアドレス入力）が消えたらログイン完了
-      await page.waitForSelector('input[type="email"]', { state: 'detached', timeout: 20000 }).catch(() => {});
-      await page.waitForTimeout(3000);
+      // list-menu-itemが現れたらログイン完了（ワークスペース/チーム選択画面）
+      await page.waitForSelector('[data-testid="list-menu-item"]', { timeout: 60000 }).catch((e) => {
+        console.log(`  => ⚠️ ログイン完了待機タイムアウト: ${e.message.split('\n')[0]}`);
+      });
+      await page.waitForTimeout(2000);
       console.log(`  => 遷移後URL: ${page.url()}`);
     }
     await page.screenshot({ path: 'ss-01-after-first-login.png', fullPage: true });
@@ -100,11 +102,15 @@ const axios = require('axios');
       await passInput.fill(process.env.SQUADBEYOND_PASS);
       await page.waitForTimeout(1000);
 
-      console.log(`  => ⏳ ログインボタンをクリックしてログインフォームが消えるまで待機します...`);
+      // Step 1のloading中ボタンが残っている場合があるので、有効化されるまで先に待つ
+      await page.waitForSelector('[data-trackid="sign-in-form-login-button"]:not([disabled])', { timeout: 15000 }).catch(() => {});
+      console.log(`  => ⏳ ログインボタンをクリックしてワークスペース選択画面を待機します...`);
       await page.getByRole('button', { name: 'ログイン' }).first().click();
-      // ログインフォーム（メールアドレス入力）が消えたらログイン完了
-      await page.waitForSelector('input[type="email"]', { state: 'detached', timeout: 20000 }).catch(() => {});
-      await page.waitForTimeout(3000);
+      // list-menu-itemが現れたらログイン完了
+      await page.waitForSelector('[data-testid="list-menu-item"]', { timeout: 60000 }).catch((e) => {
+        console.log(`  => ⚠️ 再ログイン完了待機タイムアウト: ${e.message.split('\n')[0]}`);
+      });
+      await page.waitForTimeout(2000);
     }
     await page.screenshot({ path: 'ss-03-after-relogin.png', fullPage: true });
     console.log(`  => 📸 ss-03-after-relogin.png  URL: ${page.url()}`);

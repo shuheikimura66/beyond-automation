@@ -1,5 +1,53 @@
 # Bug Fix Log — beyond-automation / task.js
 
+## [2026-06-26] #032 — duplicate_page_task.js: Step 1.3フルアウト選択タイムアウト → /folders 遷移失敗
+
+**対象ファイル**
+`duplicate_page_task.js` (Step 1.3, Step 2, Step 6)
+
+**エラーログ（GitHub Actions 実行 #28232652150）**
+```
+[Step 1.3] チーム「フルアウト」を選択します。
+  => ⚠️ フルアウト選択スキップ（自動遷移した可能性があります）
+[Step 2] コピー元フォルダ「...」へ移動します。
+  - 「検索」をクリックして検索ポップアップを開きます。
+❌ エラー発生:
+ locator.click: Timeout 30000ms exceeded.
+   - waiting for getByText('検索', { exact: true }).first()
+[現在URL] https://app.squadbeyond.com/   ← /folders に遷移できていない
+[side-menu] 見つかりません
+[list-menu-item] 見つかりません
+```
+
+**原因**
+Step 1.3で `fulloutDiv.click()` を `isVisible` チェックなしで直接呼び出していたため、要素が存在しない場合に30秒タイムアウト後にスキップされる。
+チームが未選択のまま `page.goto('/folders')` すると `/` にリダイレクトされ、「検索」ボタンが存在しないページでタイムアウト。
+
+**修正**
+1. Step 1.3: `isVisible({ timeout: 10000 })` で存在確認してからクリック（タイムアウトを30秒→10秒に短縮し早期判断）
+2. Step 2 / Step 6: `page.goto('/folders')` 後にURLを確認し、`/folders` でなければフルアウト再選択してから再 goto するリカバリーを追加
+
+```js
+// Step 1.3（修正後）
+if (await fulloutDiv.isVisible({ timeout: 10000 }).catch(() => false)) {
+  await fulloutDiv.click();
+} else {
+  console.log('フルアウト選択画面なし（既にチーム選択済みとみなしスキップ）');
+}
+
+// Step 2 / Step 6（修正後）
+if (!page.url().includes('/folders')) {
+  const fulloutRetry = page.locator('div').filter({ hasText: /^フルアウト$/ }).last();
+  if (await fulloutRetry.isVisible({ timeout: 5000 }).catch(() => false)) {
+    await fulloutRetry.click();
+    await page.waitForTimeout(3000);
+  }
+  await page.goto('https://app.squadbeyond.com/folders');
+}
+```
+
+---
+
 ## [2026-06-26] #031 — duplicate_page_task.js: 検索パネル起動、新タブ遷移、及びRadix UIのインデックスずれ対応
 
 **対象ファイル**

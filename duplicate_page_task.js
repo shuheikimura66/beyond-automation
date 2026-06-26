@@ -107,12 +107,16 @@ const axios = require('axios');
     console.log(`\n[Step 1.3] チーム「フルアウト」を選択します。`);
     try {
       const fulloutDiv = page.locator('div').filter({ hasText: /^フルアウト$/ }).last();
-      await fulloutDiv.click();
-      console.log(`  => ✅ フルアウト選択完了`);
-      await page.waitForTimeout(5000);
-      await page.waitForLoadState('load');
+      if (await fulloutDiv.isVisible({ timeout: 10000 }).catch(() => false)) {
+        await fulloutDiv.click();
+        console.log(`  => ✅ フルアウト選択完了`);
+        await page.waitForTimeout(5000);
+        await page.waitForLoadState('load');
+      } else {
+        console.log(`  => ⚠️ フルアウト選択画面なし（既にチーム選択済みとみなしスキップ）`);
+      }
     } catch(e) {
-      console.log(`  => ⚠️ フルアウト選択スキップ（自動遷移した可能性があります）`);
+      console.log(`  => ⚠️ フルアウト選択スキップ: ${e.message}`);
     }
 
     console.log(`\n[Step 1.4] UIデザインの確認を行います。`);
@@ -131,6 +135,20 @@ const axios = require('axios');
     await page.goto('https://app.squadbeyond.com/folders');
     await page.waitForLoadState('load');
     await page.waitForTimeout(2000);
+
+    // チーム未選択でリダイレクトされた場合のリカバリー
+    if (!page.url().includes('/folders')) {
+      console.log(`  => ⚠️ /folders 遷移失敗。現在URL: ${page.url()} → チーム選択を再試行します。`);
+      const fulloutRetry = page.locator('div').filter({ hasText: /^フルアウト$/ }).last();
+      if (await fulloutRetry.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await fulloutRetry.click();
+        await page.waitForTimeout(3000);
+        await page.waitForLoadState('load');
+      }
+      await page.goto('https://app.squadbeyond.com/folders');
+      await page.waitForLoadState('load');
+      await page.waitForTimeout(2000);
+    }
 
     console.log(`  - 「検索」をクリックして検索ポップアップを開きます。`);
     const searchTrigger1 = page.locator('input[placeholder*="検索"], [placeholder*="検索"]').first();
@@ -276,6 +294,20 @@ const axios = require('axios');
     await page.goto('https://app.squadbeyond.com/folders');
     await page.waitForLoadState('load');
     await page.waitForTimeout(2000);
+
+    // チーム未選択でリダイレクトされた場合のリカバリー
+    if (!page.url().includes('/folders')) {
+      console.log(`  => ⚠️ /folders 遷移失敗。現在URL: ${page.url()} → チーム選択を再試行します。`);
+      const fulloutRetry6 = page.locator('div').filter({ hasText: /^フルアウト$/ }).last();
+      if (await fulloutRetry6.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await fulloutRetry6.click();
+        await page.waitForTimeout(3000);
+        await page.waitForLoadState('load');
+      }
+      await page.goto('https://app.squadbeyond.com/folders');
+      await page.waitForLoadState('load');
+      await page.waitForTimeout(2000);
+    }
 
     console.log(`  - 複製先フォルダ「${destFolder}」を検索します。`);
     const searchTrigger2 = page.locator('input[placeholder*="検索"], [placeholder*="検索"]').first();

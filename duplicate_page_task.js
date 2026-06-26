@@ -50,18 +50,17 @@ const axios = require('axios');
       await emailInput.click();
       await emailInput.fill(process.env.SQUADBEYOND_ID);
       await page.waitForTimeout(500);
-      
+
       await passInput.click();
       await passInput.fill(process.env.SQUADBEYOND_PASS);
-      // ★システムの文字認識を待つ（フリーズ対策）
-      await page.waitForTimeout(1000); 
-      
-      console.log(`  => ⏳ Enterキーでログインを実行し、通信を待機します...`);
-      // ★ボタンクリックではなくEnterキーで自然に送信する
-      await passInput.press('Enter'); 
-      
-      await page.waitForLoadState('networkidle').catch(() => {});
-      await page.waitForTimeout(4000);
+      await page.waitForTimeout(1000);
+
+      console.log(`  => ⏳ ログインボタンをクリックしてログインフォームが消えるまで待機します...`);
+      await page.getByRole('button', { name: 'ログイン' }).first().click();
+      // ログインフォーム（メールアドレス入力）が消えたらログイン完了
+      await page.waitForSelector('input[type="email"]', { state: 'detached', timeout: 20000 }).catch(() => {});
+      await page.waitForTimeout(3000);
+      console.log(`  => 遷移後URL: ${page.url()}`);
     }
     await page.screenshot({ path: 'ss-01-after-first-login.png', fullPage: true });
     console.log(`  => 📸 ss-01-after-first-login.png`);
@@ -101,11 +100,11 @@ const axios = require('axios');
       await passInput.fill(process.env.SQUADBEYOND_PASS);
       await page.waitForTimeout(1000);
 
-      console.log(`  => ⏳ Enterキーで再度ログインを実行します...`);
-      await passInput.press('Enter');
-
-      await page.waitForLoadState('networkidle').catch(() => {});
-      await page.waitForTimeout(4000);
+      console.log(`  => ⏳ ログインボタンをクリックしてログインフォームが消えるまで待機します...`);
+      await page.getByRole('button', { name: 'ログイン' }).first().click();
+      // ログインフォーム（メールアドレス入力）が消えたらログイン完了
+      await page.waitForSelector('input[type="email"]', { state: 'detached', timeout: 20000 }).catch(() => {});
+      await page.waitForTimeout(3000);
     }
     await page.screenshot({ path: 'ss-03-after-relogin.png', fullPage: true });
     console.log(`  => 📸 ss-03-after-relogin.png  URL: ${page.url()}`);

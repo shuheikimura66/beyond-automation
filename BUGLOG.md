@@ -1,5 +1,35 @@
 # Bug Fix Log — beyond-automation / task.js
 
+## [2026-06-26] #037 — duplicate_page_task.js: ログイン完了待機を waitForLoadState → waitForSelector(detached) に変更
+
+**対象ファイル**
+`duplicate_page_task.js` (Step 1、Step 1.2)
+
+**問題**
+- `passInput.press('Enter')` でフォーム送信後、ログインボタンがスピナー表示になるが、ページが遷移しない
+- `waitForLoadState('networkidle')` がリダイレクト前に解決してしまう
+- `waitForTimeout(4000)` の4秒も不足
+- 結果: ss-01〜ss-06 すべてがログイン画面のまま（GitHub Actions run #28234988392 で確認）
+
+**根本原因**
+SquadBeyondのログインはSPA（React）のため、ログイン後も URLは `https://app.squadbeyond.com/` のまま変わらない。
+DOMが変化（メールアドレス入力が消える）するだけなので `waitForURL` は使えない。
+`networkidle` は非同期処理の途中で解決してしまう。
+
+**修正**
+Step 1・Step 1.2 の両方で:
+- `passInput.press('Enter')` → `page.getByRole('button', { name: 'ログイン' }).first().click()` に変更
+- `waitForLoadState('networkidle')` + `waitForTimeout(4000)` → `waitForSelector('input[type="email"]', { state: 'detached', timeout: 20000 })` に変更（メールアドレス入力が消えたらログイン完了）
+
+```js
+// 修正後（Step 1 / Step 1.2 共通）
+await page.getByRole('button', { name: 'ログイン' }).first().click();
+await page.waitForSelector('input[type="email"]', { state: 'detached', timeout: 20000 }).catch(() => {});
+await page.waitForTimeout(3000);
+```
+
+---
+
 ## [2026-06-26] #035 — duplicate_page_task.js: フルアウト選択を位置依存→テキスト検索に変更
 
 **対象ファイル**

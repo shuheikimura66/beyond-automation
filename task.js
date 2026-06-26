@@ -6,7 +6,7 @@ const axios = require('axios');
   const context = await browser.newContext({
     viewport: { width: 1372, height: 841 }
   });
-  // ★const から let に変更（後で新しいタブに上書きするため）
+  // 後で新しいタブに上書きするため let で宣言
   let page = await context.newPage();
 
   // =========================================================
@@ -102,7 +102,7 @@ const axios = require('axios');
     await page.waitForLoadState('load');
 
     // =========================================================
-    // [Step 2] フォルダ作成（新UIフロー）
+    // [Step 2] フォルダ作成
     // =========================================================
     console.log(`\n[Step 2] コピー先のフォルダを新規作成します（新UIフロー）。`);
     console.log(`  - フォルダ作成アイコンをクリックします。`);
@@ -149,7 +149,7 @@ const axios = require('axios');
     await page.waitForTimeout(5000);
 
     // =========================================================
-    // [Step 2.5] フォルダ名称変更
+    // ★大改修 [Step 2.5] フォルダ名称変更（新タブ遷移＆サイドバー対応）
     // =========================================================
     console.log(`\n[Step 2.5] 作成したフォルダを「${destFolder}」に名称変更します。`);
     await page.locator('div[role="dialog"]').waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {});
@@ -160,7 +160,6 @@ const axios = require('axios');
     await page.waitForLoadState('load');
     await page.waitForTimeout(2000);
 
-    // ★修正: 検索モーダル起動
     console.log(`  - 「検索」をクリックして検索パネルを開きます。`);
     const searchTrigger1 = page.locator('input[placeholder*="検索"], [placeholder*="検索"]').first();
     if (await searchTrigger1.isVisible({ timeout: 3000 }).catch(() => false)) {
@@ -171,38 +170,55 @@ const axios = require('axios');
     await page.waitForTimeout(1500);
 
     console.log(`  - 「新しいフォルダ」を検索します。`);
-    // ★修正: モーダル内 input 取得
     const sideMenuInput = page.locator('div[role="dialog"] input').first().or(page.locator('input').last());
     await sideMenuInput.waitFor({ state: 'visible', timeout: 10000 });
     await sideMenuInput.fill('新しいフォルダ');
     await page.waitForTimeout(2000);
 
-    await page.getByText(/^フォルダ/).last().click();
+    await page.locator('span').filter({ hasText: /^フォルダ/ }).last().click();
     await page.waitForTimeout(1000);
 
+    console.log(`  - 検索結果の「新しいフォルダ」をクリックし、新タブ遷移を待機します。`);
     const newFolderMark = page.locator('mark').filter({ hasText: '新しいフォルダ' }).first();
     await newFolderMark.waitFor({ state: 'visible', timeout: 10000 });
-    await newFolderMark.hover();
+    
+    // ★ クリックと同時に新しいタブが開くのを捕捉し、操作対象を移行する
+    const [newPageRename] = await Promise.all([
+      context.waitForEvent('page'),
+      newFolderMark.click()
+    ]);
+    page = newPageRename; 
+    await page.waitForLoadState('load');
+    await page.waitForTimeout(3000);
+
+    console.log(`  - 新タブのサイドバーで「新しいフォルダ」を探し、名称変更します。`);
+    // 新タブの左サイドバーにあるフォルダ一覧から該当のフォルダを特定
+    const targetNewFolder = page.locator('[data-testid="list-menu-item"]').filter({ hasText: '新しいフォルダ' }).first();
+    await targetNewFolder.waitFor({ state: 'visible', timeout: 10000 });
+    await targetNewFolder.hover();
     await page.waitForTimeout(500);
 
     console.log(`  - 3ドットボタンをクリックします。`);
-    await page.locator('[data-testid="option-icon"]').first().click();
+    // 他のフォルダの3ドットを誤爆しないよう、ホバーした行の中のアイコンに限定
+    await targetNewFolder.locator('[data-testid="option-icon"]').first().click();
     await page.waitForTimeout(500);
 
     await page.getByText('名称変更', { exact: true }).click();
     await page.waitForTimeout(500);
+    
+    // 全選択して上書き入力
     await page.keyboard.press('Control+A');
+    await page.keyboard.press('Meta+A'); // Mac環境用のフォールバック
+    await page.keyboard.press('Backspace');
     await page.keyboard.type(destFolder, { delay: 50 });
     await page.keyboard.press('Enter');
-    await page.waitForTimeout(2000);
-    await page.keyboard.press('Escape'); // モーダルが開いていれば閉じる
+    await page.waitForTimeout(3000);
 
     // =========================================================
     // [Step 3] コピー元フォルダを検索パネルで直接検索してクリック
     // =========================================================
     console.log(`\n[Step 3] 原本フォルダ「${sourceFolder}」を検索します。`);
 
-    // ★修正: 検索モーダル再起動（閉じている場合）
     const searchTrigger2 = page.locator('input[placeholder*="検索"], [placeholder*="検索"]').first();
     if (await searchTrigger2.isVisible({ timeout: 3000 }).catch(() => false)) {
         await searchTrigger2.click();
@@ -212,30 +228,28 @@ const axios = require('axios');
     await page.waitForTimeout(1500);
 
     console.log(`  - 「${sourceFolder}」を検索してクリックします。`);
-    // ★修正: モーダル内 input 取得
     const sideMenuInput3 = page.locator('div[role="dialog"] input').first().or(page.locator('input').last());
     await sideMenuInput3.waitFor({ state: 'visible', timeout: 10000 });
     await sideMenuInput3.fill(sourceFolder);
     await page.waitForTimeout(2000);
 
-    await page.getByText(/^フォルダ/).last().click();
+    await page.locator('span').filter({ hasText: /^フォルダ/ }).last().click();
     await page.waitForTimeout(1000);
 
-    // ★修正: 新タブ遷移の捕捉
     const sourceFolderMark = page.locator('mark').filter({ hasText: sourceFolder }).first();
     await sourceFolderMark.waitFor({ state: 'visible', timeout: 10000 });
     
-    console.log(`  => 📄 新しいタブが開くのを待機します...`);
+    console.log(`  => 📄 さらなる新タブが開くのを待機します...`);
     const [newPageSource] = await Promise.all([
       context.waitForEvent('page'),
       sourceFolderMark.click()
     ]);
-    page = newPageSource; // これ以降、RPAの操作対象を新しいタブに切り替える
+    page = newPageSource; // これ以降、RPAの操作対象をさらに新しいタブに切り替える
     await page.waitForLoadState('load');
     await page.waitForTimeout(3000);
 
     // =========================================================
-    // [Step 4] 記事検索（新UIセレクター）
+    // [Step 4] 記事検索
     // =========================================================
     console.log(`\n[Step 4] 新しいタブのフォルダ内で記事「${sourceArticle}」を検索します。`);
 
@@ -281,7 +295,7 @@ const axios = require('axios');
     await page.waitForTimeout(1000);
 
     console.log(`  - 検索窓にフォルダ名を入力します。`);
-    // ★修正: nth-of-type(10) を廃止し、最後に展開された input を取得
+    // popover の最後に追加された input を狙う
     const destFolderSearchInput = page.locator('input').last();
     await destFolderSearchInput.waitFor({ state: 'visible', timeout: 5000 });
     await destFolderSearchInput.fill(destFolder);
@@ -290,7 +304,7 @@ const axios = require('axios');
     await page.getByText(groupListDest, { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
-    // ★修正: xpath=div[2] を使用して strict mode violation を防止
+    // xpath=div[2] を使用して strict mode violation を防止
     await page.locator('[data-testid="list-menu-item"]')
       .filter({ hasText: destFolder }).last()
       .locator('xpath=div[2]').click();

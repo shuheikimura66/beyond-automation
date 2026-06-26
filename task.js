@@ -6,7 +6,6 @@ const axios = require('axios');
   const context = await browser.newContext({
     viewport: { width: 1372, height: 841 }
   });
-  // 後で新しいタブに上書きするため let で宣言
   let page = await context.newPage();
 
   // =========================================================
@@ -149,73 +148,54 @@ const axios = require('axios');
     await page.waitForTimeout(5000);
 
     // =========================================================
-    // ★大改修 [Step 2.5] フォルダ名称変更（新タブ遷移＆サイドバー対応）
+    // ★修正 [Step 2.5] フォルダ名称変更（インライン編集対応）
     // =========================================================
     console.log(`\n[Step 2.5] 作成したフォルダを「${destFolder}」に名称変更します。`);
     await page.locator('div[role="dialog"]').waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {});
     await page.waitForTimeout(2000);
 
+    // ビューを確実にリセットしてサイドバーを表示させる
     console.log(`  - /folders に移動してページ一覧ビューに戻ります。`);
     await page.goto('https://app.squadbeyond.com/folders');
     await page.waitForLoadState('load');
     await page.waitForTimeout(2000);
 
-    console.log(`  - 「検索」をクリックして検索パネルを開きます。`);
-    const searchTrigger1 = page.locator('input[placeholder*="検索"], [placeholder*="検索"]').first();
-    if (await searchTrigger1.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await searchTrigger1.click();
-    } else {
-        await page.getByText('検索', { exact: true }).first().click();
-    }
-    await page.waitForTimeout(1500);
-
-    console.log(`  - 「新しいフォルダ」を検索します。`);
-    const sideMenuInput = page.locator('div[role="dialog"] input').first().or(page.locator('input').last());
-    await sideMenuInput.waitFor({ state: 'visible', timeout: 10000 });
-    await sideMenuInput.fill('新しいフォルダ');
-    await page.waitForTimeout(2000);
-
-    await page.locator('span').filter({ hasText: /^フォルダ/ }).last().click();
-    await page.waitForTimeout(1000);
-
-    console.log(`  - 検索結果の「新しいフォルダ」をクリックし、新タブ遷移を待機します。`);
-    const newFolderMark = page.locator('mark').filter({ hasText: '新しいフォルダ' }).first();
-    await newFolderMark.waitFor({ state: 'visible', timeout: 10000 });
-    
-    // ★ クリックと同時に新しいタブが開くのを捕捉し、操作対象を移行する
-    const [newPageRename] = await Promise.all([
-      context.waitForEvent('page'),
-      newFolderMark.click()
-    ]);
-    page = newPageRename; 
-    await page.waitForLoadState('load');
-    await page.waitForTimeout(3000);
-
-    console.log(`  - 新タブのサイドバーで「新しいフォルダ」を探し、名称変更します。`);
-    // 新タブの左サイドバーにあるフォルダ一覧から該当のフォルダを特定
+    console.log(`  - サイドバーから「新しいフォルダ」を探します。`);
     const targetNewFolder = page.locator('[data-testid="list-menu-item"]').filter({ hasText: '新しいフォルダ' }).first();
     await targetNewFolder.waitFor({ state: 'visible', timeout: 10000 });
+    
+    // ホバーして3ドットボタンを出現させる
     await targetNewFolder.hover();
     await page.waitForTimeout(500);
 
     console.log(`  - 3ドットボタンをクリックします。`);
-    // 他のフォルダの3ドットを誤爆しないよう、ホバーした行の中のアイコンに限定
-    await targetNewFolder.locator('[data-testid="option-icon"]').first().click();
+    try {
+        await targetNewFolder.locator('[data-testid="option-icon"]').first().click();
+    } catch (e) {
+        // フォールバック: JSON録画にあるsvg要素でクリック
+        await targetNewFolder.locator('svg').last().click();
+    }
     await page.waitForTimeout(500);
 
-    await page.getByText('名称変更', { exact: true }).click();
+    await page.getByText('名称変更', { exact: true }).last().click();
+    await page.waitForTimeout(500);
+
+    console.log(`  - フォルダ名を入力して保存します。`);
+    // JSON録画に従い、list-menu-item内のinputを取得して入力
+    const renameInput = targetNewFolder.locator('input').first();
+    await renameInput.waitFor({ state: 'visible', timeout: 5000 });
+    await renameInput.click();
+    await page.keyboard.press('Control+A');
+    await page.keyboard.press('Meta+A'); // Mac環境用フォールバック
+    await renameInput.fill(destFolder);
     await page.waitForTimeout(500);
     
-    // 全選択して上書き入力
-    await page.keyboard.press('Control+A');
-    await page.keyboard.press('Meta+A'); // Mac環境用のフォールバック
-    await page.keyboard.press('Backspace');
-    await page.keyboard.type(destFolder, { delay: 50 });
-    await page.keyboard.press('Enter');
+    // Enterで確定
+    await renameInput.press('Enter');
     await page.waitForTimeout(3000);
 
     // =========================================================
-    // [Step 3] コピー元フォルダを検索パネルで直接検索してクリック
+    // [Step 3] コピー元フォルダを検索パネルで検索してクリック
     // =========================================================
     console.log(`\n[Step 3] 原本フォルダ「${sourceFolder}」を検索します。`);
 
@@ -239,12 +219,12 @@ const axios = require('axios');
     const sourceFolderMark = page.locator('mark').filter({ hasText: sourceFolder }).first();
     await sourceFolderMark.waitFor({ state: 'visible', timeout: 10000 });
     
-    console.log(`  => 📄 さらなる新タブが開くのを待機します...`);
+    console.log(`  => 📄 新しいタブが開くのを待機します...`);
     const [newPageSource] = await Promise.all([
       context.waitForEvent('page'),
       sourceFolderMark.click()
     ]);
-    page = newPageSource; // これ以降、RPAの操作対象をさらに新しいタブに切り替える
+    page = newPageSource; // これ以降、RPAの操作対象を新しいタブに切り替える
     await page.waitForLoadState('load');
     await page.waitForTimeout(3000);
 
@@ -295,7 +275,6 @@ const axios = require('axios');
     await page.waitForTimeout(1000);
 
     console.log(`  - 検索窓にフォルダ名を入力します。`);
-    // popover の最後に追加された input を狙う
     const destFolderSearchInput = page.locator('input').last();
     await destFolderSearchInput.waitFor({ state: 'visible', timeout: 5000 });
     await destFolderSearchInput.fill(destFolder);

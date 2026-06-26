@@ -1,5 +1,25 @@
 # Bug Fix Log — beyond-automation / task.js
 
+## [2026-06-26] #031 — duplicate_page_task.js: 検索パネル起動、新タブ遷移、及びRadix UIのインデックスずれ対応
+
+**対象ファイル**
+`duplicate_page_task.js` (Step 2, Step 5, Step 6)
+
+**エラー内容**
+1. Step 2/6: 検索バーをクリックできず、モーダルが開かないためタイムアウト。
+2. Step 2/6: 検索結果のフォルダをクリックした後、遷移先で検索窓が見つからずタイムアウト。
+3. Step 5: 複製先フォルダの入力窓指定で strict mode violation またはタイムアウトが発生。
+
+**原因**
+1. 検索バーのUIが変更され、旧来の `[data-testid="side-menu"] button` が無効化されていた。
+2. 検索結果のフォルダをクリックすると「新しいChromeタブ」で開く仕様に変更されていた。Playwrightは元のタブ（検索画面が残ったタブ）を参照し続けていたため、遷移後の要素を見つけられなかった。
+3. Squad beyondのUI（Radix UI）の仕様により、ポップオーバーが開くたびにDOMの末尾（body直下）に要素が追加される。画面内の他要素の状況によって `div:nth-of-type(10)` が `11` などにずれてしまい、入力窓を正しく特定できていなかった（Chrome DevToolsの録画JSONにより特定）。
+
+**修正**
+1. **検索トリガーの安定化**: 検索トリガーを `input[placeholder*="検索"]` と `getByText('検索')` のフォールバックに変更し、確実にクリックしてモーダルを開くよう修正。また、入力窓自体も `div[role="dialog"] input` でモーダル内のものを優先取得するよう変更。
+2. **新タブ遷移の捕捉**: `const page` を `let page` に変更。フォルダ（mark要素）のクリック時に `context.waitForEvent('page')` を併用して新しく開いたタブを捕捉し、以降の操作対象（`page` 変数）を新しいタブに上書きする処理を追加。
+3. **要素指定の堅牢化**: `nth-of-type(10)` のような脆いインデックス指定を廃止し、`page.locator('input').last()` を使用。これにより「DOMの最後に開かれたポップオーバーの入力窓」を安定して狙うよう修正。
+
 ## [2026-06-22] #026 — `duplicate_page_task.js` Step 2/6 の検索inputが直接アクセス不可（クリックが必要）
 
 **エラー内容**

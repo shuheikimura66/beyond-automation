@@ -1,5 +1,37 @@
 # Bug Fix Log — beyond-automation / task.js
 
+## [2026-06-26] #034 — duplicate_page_task.js: Step1.2.5を録画6.jsonで完全書き直し
+
+**対象ファイル**
+`duplicate_page_task.js` (Step 1.2.5、Step 1.3)
+
+**エラーログ（GitHub Actions 実行 #28233301820）**
+```
+[Step 1.2] 再ログイン完了
+[Step 1.3] フルアウト選択 → 「フルアウト選択画面なし（スキップ）」
+❌ /folders 遷移失敗 → 検索ボタンタイムアウト
+※ Step 1.2.5 のログが一切出ていない（= 条件に入らずスキップ）
+```
+
+**#033の問題点（5.jsonベース実装の誤り）**
+| 箇所 | 5.json（誤） | 6.json（正） |
+|---|---|---|
+| テキストfilter | `hasText: /ID:/` あり → 常にfalseで未動作 | **なし**（テキスト依存しない） |
+| click xpath | `div[2]/div/div[2]` | **`div[2]/div/div[1]`** |
+| Radix xpath | `div[2]/div[2]/div[12]/div` | **`div[1]/div[2]/div`** |
+| フルアウトclick | `list-menu-item`自体 | **`li:nth-of-type(3) svg`（SVGアイコン）** |
+
+CSSクラス名（`css-1s007kz`等）はCSS-in-JSビルドごとに変わるため使用不可。
+
+**修正**
+Step 1.2.5を録画6.jsonで完全書き直し。テキスト/CSSクラス依存なし。
+- list-menu-item検出: `filter({ hasText: /ID:/ })` → 削除（text依存なし）
+- ワークスペースclick: `xpath=div[2]/div/div[1]` を2回
+- Radix: `xpath=//*[contains(@id,"radix-")]/div/div[2]/div[1]/div[2]/div`
+- フルアウト: `li:nth-of-type(3) [data-testid="list-menu-item"]` の `xpath=div[1]/div/svg` をクリック
+
+---
+
 ## [2026-06-26] #033 — duplicate_page_task.js: ログイン後の新UIワークスペース選択ステップ追加
 
 **対象ファイル**

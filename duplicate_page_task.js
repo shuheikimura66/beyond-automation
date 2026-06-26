@@ -104,16 +104,51 @@ const axios = require('axios');
       await page.waitForTimeout(4000);
     }
 
+    console.log(`\n[Step 1.2.5] ログイン後のワークスペース選択（新UI対応）`);
+    try {
+      // 録画5.json step3/4: "ID: -"テキストのlist-menu-itemが出たら2回クリック
+      const idMenuItem = page.locator('[data-testid="list-menu-item"]').filter({ hasText: /ID:/ }).first();
+      if (await idMenuItem.isVisible({ timeout: 5000 }).catch(() => false)) {
+        console.log(`  - ワークスペース選択画面を検知。録画フローを実行します。`);
+        const clickTarget = idMenuItem.locator('div.css-1s007kz').first();
+        await clickTarget.click({ timeout: 3000 }).catch(() => idMenuItem.click());
+        await page.waitForTimeout(500);
+        await clickTarget.click({ timeout: 3000 }).catch(() => idMenuItem.click());
+        await page.waitForTimeout(1500);
+
+        // 録画5.json step5: Radixポップオーバーの12番目アイテムをクリック → navigation発生
+        await page.locator('xpath=//*[contains(@id,"radix-")]/div/div[2]/div[2]/div[12]/div')
+          .first().click({ timeout: 5000 });
+        await page.waitForLoadState('load');
+        await page.waitForTimeout(3000);
+        console.log(`  => ✅ ワークスペース選択完了`);
+      } else {
+        console.log(`  => ⚠️ ワークスペース選択画面なし（スキップ）`);
+      }
+    } catch(e) {
+      console.log(`  => ⚠️ ワークスペース選択スキップ: ${e.message}`);
+    }
+
     console.log(`\n[Step 1.3] チーム「フルアウト」を選択します。`);
     try {
+      // 録画5.json step6: li:nth-of-type(3) > list-menu-item がフルアウト
       const fulloutDiv = page.locator('div').filter({ hasText: /^フルアウト$/ }).last();
       if (await fulloutDiv.isVisible({ timeout: 10000 }).catch(() => false)) {
         await fulloutDiv.click();
-        console.log(`  => ✅ フルアウト選択完了`);
+        console.log(`  => ✅ フルアウト選択完了（テキスト一致）`);
         await page.waitForTimeout(5000);
         await page.waitForLoadState('load');
       } else {
-        console.log(`  => ⚠️ フルアウト選択画面なし（既にチーム選択済みとみなしスキップ）`);
+        // フォールバック: 録画通りのポジション指定
+        const thirdItem = page.locator('li:nth-of-type(3) [data-testid="list-menu-item"]').first();
+        if (await thirdItem.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await thirdItem.click();
+          console.log(`  => ✅ フルアウト選択完了（録画フォールバック）`);
+          await page.waitForTimeout(5000);
+          await page.waitForLoadState('load');
+        } else {
+          console.log(`  => ⚠️ フルアウト選択画面なし（既にチーム選択済みとみなしスキップ）`);
+        }
       }
     } catch(e) {
       console.log(`  => ⚠️ フルアウト選択スキップ: ${e.message}`);

@@ -1,5 +1,48 @@
 # Bug Fix Log — beyond-automation / task.js
 
+## [2026-06-26] #033 — duplicate_page_task.js: ログイン後の新UIワークスペース選択ステップ追加
+
+**対象ファイル**
+`duplicate_page_task.js` (Step 1.2.5 追加、Step 1.3 フォールバック追加)
+
+**エラーログ（GitHub Actions 実行 #28233301820）**
+```
+[Step 1.2] 再ログイン → 完了
+[Step 1.3] フルアウト選択 → 「フルアウト選択画面なし（スキップ）」
+[Step 2]   ⚠️ /folders 遷移失敗。現在URL: https://app.squadbeyond.com/
+❌ locator.click: Timeout 30000ms exceeded.
+   - waiting for getByText('検索', { exact: true }).first()
+```
+
+**原因**
+ログイン後に新しいワークスペース選択画面（"ID: -"リスト → Radixドロップダウン）が追加されたが、
+コードがそのステップを完全に飛ばしていた。この画面を通過しないとフルアウトのチームリストが表示されず、
+Step 1.3でフルアウトが見つからないまま /folders に遷移 → チーム未選択で / にリダイレクト → 「検索」ボタンなし。
+
+**録画（5.json）との比較**
+| 録画ステップ | 内容 | 修正前 |
+|---|---|---|
+| step3/4 | `div.css-1s007kz`（"ID: -"）を2回クリック | 存在しない |
+| step5 | Radixドロップダウン12番目アイテム → navigation | 存在しない |
+| step6 | `li:nth-of-type(3) > list-menu-item`（フルアウト） | Step 1.3のみ（到達不可） |
+
+**修正**
+Step 1.2.5を新設：ログイン後に "ID: -" の list-menu-item が出たら録画フローを実行してからフルアウト選択へ進む。
+Step 1.3にフォールバック追加：テキスト検索失敗時は録画の `li:nth-of-type(3) [data-testid="list-menu-item"]` で選択。
+
+```js
+// Step 1.2.5（新規追加）
+const idMenuItem = page.locator('[data-testid="list-menu-item"]').filter({ hasText: /ID:/ }).first();
+if (await idMenuItem.isVisible({ timeout: 5000 }).catch(() => false)) {
+  await clickTarget.click(); // 2回
+  await page.locator('xpath=//*[contains(@id,"radix-")]/div/div[2]/div[2]/div[12]/div')
+    .first().click({ timeout: 5000 });
+  await page.waitForLoadState('load');
+}
+```
+
+---
+
 ## [2026-06-26] #032 — duplicate_page_task.js: Step 1.3フルアウト選択タイムアウト → /folders 遷移失敗
 
 **対象ファイル**

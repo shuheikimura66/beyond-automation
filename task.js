@@ -33,19 +33,17 @@ const axios = require('axios');
     console.log(`=========================================`);
 
     // =========================================================
-    // [Step 1] ログイン処理（堅牢化バージョン）
+    // [Step 1] ログイン処理
     // =========================================================
     console.log(`\n[Step 1] ターゲットURLにアクセスします: ${targetUrl}`);
     await page.goto(targetUrl);
     
-    // ★修正: 3秒の固定待機ではなく、ログイン窓かダッシュボードが出るまで最大15秒待機する
     try {
         await page.waitForSelector('input[name="email"], input[type="email"], [data-testid="list-menu-item"]', { timeout: 15000 });
     } catch(e) {
-        console.log(`  => ⚠️ ページ読み込み遅延、またはBot検知(Cloudflare等)の可能性があります。`);
+        console.log(`  => ⚠️ ページ読み込み遅延、またはBot検知の可能性があります。`);
     }
 
-    // ★修正: name属性が変わっても対応できるように柔軟なセレクターに変更
     const emailInput = page.locator('input[name="email"], input[type="email"]').first();
     const passInput = page.locator('input[name="password"], input[type="password"]').first();
     const loginBtn = page.locator('button:has-text("ログイン"), input[type="submit"], button[type="submit"]').first();
@@ -57,8 +55,12 @@ const axios = require('axios');
       await passInput.fill(process.env.SQUADBEYOND_PASS);
       await page.waitForTimeout(500);
       await loginBtn.click();
+      
+      // ★修正: 固定の4秒待機を廃止し、ダッシュボードの出現を最大20秒待つ
+      console.log(`  => ⏳ ログイン認証の完了を待機中...`);
+      await page.waitForSelector('[data-testid="list-menu-item"]', { timeout: 20000 }).catch(() => {});
       await page.waitForLoadState('load');
-      await page.waitForTimeout(4000);
+      await page.waitForTimeout(2000);
     }
 
     console.log(`\n[Step 1.1] システムバグ回避のため、強制ログアウトを実行します。`);
@@ -90,8 +92,12 @@ const axios = require('axios');
       await passInput.fill(process.env.SQUADBEYOND_PASS);
       await page.waitForTimeout(500);
       await loginBtn.click();
+      
+      // ★修正: ここでもしっかり認証を待つ
+      console.log(`  => ⏳ ログイン認証の完了を待機中...`);
+      await page.waitForSelector('[data-testid="list-menu-item"]', { timeout: 20000 }).catch(() => {});
       await page.waitForLoadState('load');
-      await page.waitForTimeout(4000);
+      await page.waitForTimeout(2000);
     }
 
     console.log(`\n[Step 1.3] チーム「フルアウト」を選択します。`);
@@ -209,10 +215,9 @@ const axios = require('axios');
 
     console.log(`  - 右パネルの「名称変更」欄でフォルダ名を入力して保存します。`);
     try {
-        // ★修正: 「名前変更」ではなく「名称変更」
         const renameLabel = page.getByText('名称変更', { exact: true }).last();
         await renameLabel.waitFor({ state: 'visible', timeout: 5000 });
-        await renameLabel.scrollIntoViewIfNeeded(); // 見えない場合はスクロール
+        await renameLabel.scrollIntoViewIfNeeded();
         await renameLabel.click();
         await page.waitForTimeout(800);
     } catch (e) {
@@ -225,7 +230,7 @@ const axios = require('axios');
     await page.keyboard.press('Backspace');
     await page.keyboard.type(destFolder, { delay: 50 });
     await page.waitForTimeout(500);
-    await page.keyboard.press('Enter'); // 保存を確定
+    await page.keyboard.press('Enter');
     await page.waitForTimeout(3000);
 
     // =========================================================
@@ -258,7 +263,7 @@ const axios = require('axios');
       context.waitForEvent('page'),
       sourceFolderMark.click()
     ]);
-    page = newPageSource; // これ以降、RPAの操作対象をさらに新しいタブに切り替える
+    page = newPageSource;
     await page.waitForLoadState('load');
     await page.waitForTimeout(3000);
 

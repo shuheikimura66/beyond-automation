@@ -100,33 +100,33 @@ const axios = require('axios');
     }
 
     // =========================================================
-    // [Step 2] コピー元フォルダへ移動（録画 0607_10.json ベース）
-    // 検索パネルを開いてsourceFolderを検索 → クリック
+    // [Step 2] コピー元フォルダへ移動（検索パネルを開いて検索）
     // =========================================================
     console.log(`\n[Step 2] コピー元フォルダ「${sourceFolder}」へ移動します。`);
     await page.goto('https://app.squadbeyond.com/folders');
     await page.waitForLoadState('load');
     await page.waitForTimeout(2000);
 
-    // 検索ボタン: [data-testid="side-menu"] の button（JSON: xpath/[data-testid="side-menu"]/div[1]/button/span）
     console.log(`  - 「検索」をクリックして検索ポップアップを開きます。`);
-    await page.locator('[data-testid="side-menu"] button').first().click();
-    await page.waitForTimeout(800);
-
-    // input に入力（JSON: change event on input）
-    const sideMenuInput = page.locator('input').first();
-    await sideMenuInput.waitFor({ state: 'visible', timeout: 10000 });
-    await sideMenuInput.fill(sourceFolder);
+    const searchTrigger1 = page.locator('input[placeholder*="検索"], [placeholder*="検索"]').first();
+    if (await searchTrigger1.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await searchTrigger1.click();
+    } else {
+        await page.getByText('検索', { exact: true }).first().click();
+    }
     await page.waitForTimeout(1500);
 
-    // 「フォルダ」タブ: /^フォルダ/ で前方一致（「フォルダ1」「フォルダ -」に対応）
-    // JSON: div:nth-of-type(2) > span、text/フォルダ1
+    console.log(`  - コピー元フォルダ名を入力します。`);
+    const sideMenuInput = page.locator('div[role="dialog"] input').first().or(page.locator('input').last());
+    await sideMenuInput.waitFor({ state: 'visible', timeout: 10000 });
+    await sideMenuInput.fill(sourceFolder);
+    await page.waitForTimeout(2000); // 検索結果の反映待機
+
     const folderTab2 = page.locator('span').filter({ hasText: /^フォルダ/ }).last();
     await folderTab2.waitFor({ state: 'visible', timeout: 10000 });
     await folderTab2.click();
     await page.waitForTimeout(1000);
 
-    // mark要素をクリック（JSON: [data-testid="list-menu-item"]/div[2]/span/mark）
     console.log(`  - 検索結果から「${sourceFolder}」をクリックします。`);
     const markResult = page.locator('[data-testid="list-menu-item"] mark').first();
     await markResult.waitFor({ state: 'visible', timeout: 10000 });
@@ -142,10 +142,8 @@ const axios = require('axios');
     // =========================================================
     console.log(`\n[Step 3] フォルダ内で記事「${sourceArticle}」を検索します。`);
 
-    // フォルダ内検索inputを探す（button.efy50tl0 は生成クラスで変更されるため安定セレクターに変更）
     const folderSearchInput = page.locator('input[placeholder*="フォルダ内検索"], input[placeholder*="検索"]').last();
     if (!(await folderSearchInput.isVisible({ timeout: 2000 }).catch(() => false))) {
-      // inputが非表示なら検索トグルボタンをクリック
       await page.locator('button.efy50tl0').click().catch(() => {});
       await page.waitForTimeout(500);
     }
@@ -155,11 +153,9 @@ const axios = require('axios');
 
     // =========================================================
     // [Step 4] option-icon → 「別フォルダへ複製」
-    // 新UI: 3ドットメニューから「別フォルダへ複製」を選択
     // =========================================================
     console.log(`\n[Step 4] 対象記事のメニューを開きます。`);
 
-    // 記事行にhoverしてoption-iconを出現させてからクリック
     const articleItem = page.getByText(sourceArticle, { exact: true }).first();
     await articleItem.waitFor({ state: 'visible', timeout: 10000 });
     await articleItem.hover();
@@ -174,46 +170,36 @@ const axios = require('axios');
     await page.waitForTimeout(2000);
 
     // =========================================================
-    // [Step 5] 複製設定ダイアログ（録画 0607_10.json ベース）
+    // [Step 5] 複製設定ダイアログ
     // =========================================================
     console.log(`\n[Step 5] 複製ウィザードを進めます。`);
 
     const activeModal = page.locator('div[role="dialog"]').last();
 
-    // --- チーム選択（section 1） ---
     console.log(`  - 1. チームを「現在のチーム内」に設定します。`);
     await activeModal.locator('section:nth-of-type(1) div.css-18ji2p4 > div').click();
     await page.waitForTimeout(500);
     await page.getByText('現在のチーム内', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
-    // --- フォルダ選択（section 2） ---
     console.log(`  - 2. 複製先フォルダを選択します。`);
     await activeModal.locator('section:nth-of-type(2) div.css-18ji2p4 > div').click();
     await page.waitForTimeout(500);
 
-    // destFolderで検索
     console.log(`  - 検索窓に「${destFolder}」を入力します。`);
     await page.locator('div:nth-of-type(10) input').fill(destFolder);
     await page.waitForTimeout(2000);
 
-    // groupListDestクリック（div[2] = テキスト部分 → グループを展開）
     console.log(`  - グループ「${groupListDest}」をクリックして展開します。`);
     await page.getByText(groupListDest, { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
-    // destFolderクリック（録画 1.json: div[2] = 直接子の2番目div = テキスト部分）
-    // ※ CSS div:nth-of-type(2) はサブツリー全体にマッチして strict mode violation を起こすため
-    //   XPath div[2]（直接の子のみ）を使用する
     console.log(`  - フォルダ「${destFolder}」をクリックします。`);
     await page.locator('[data-testid="list-menu-item"]')
       .filter({ hasText: destFolder }).last()
       .locator('xpath=div[2]').click();
     await page.waitForTimeout(1000);
 
-    // --- 配信URLタブを開く ---
-    // 録画 1.json: タブ trigger の span（text: ⚠️後から変更できません）をクリックして展開
-    // ※ 「配信URL」テキストではなく ⚠️スパンがRadix UIのaccordion trigger
     console.log(`  - 3. 「⚠️後から変更できません」をクリックしてURLタブを開きます。`);
     await page.getByText('⚠️後から変更できません').click();
     await page.waitForTimeout(500);
@@ -224,18 +210,16 @@ const axios = require('axios');
       await urlInput.waitFor({ state: 'visible', timeout: 5000 });
       await urlInput.click();
       await urlInput.fill(deliveryUrl);
-      await page.keyboard.press('Tab'); // blur してバリデーション確定
+      await page.keyboard.press('Tab'); 
       await page.waitForTimeout(500);
     }
 
-    // --- ページ名タブを開く（録画: text/🙆いつでも変更可能です）---
     console.log(`  - 「🙆いつでも変更可能です」をクリックしてページ名欄を開きます。`);
     const pageNameTab = page.getByText('いつでも変更可能です').last();
     await pageNameTab.waitFor({ state: 'visible', timeout: 5000 });
     await pageNameTab.click();
     await page.waitForTimeout(1000);
 
-    // --- ページ名入力（タブを開いた後の input） ---
     console.log(`  - ページ名「${newArticleName}」を入力します。`);
     const pageNameInput = activeModal.locator('section:nth-of-type(3) input').last();
     await pageNameInput.waitFor({ state: 'visible', timeout: 5000 });
@@ -244,62 +228,60 @@ const axios = require('axios');
     await pageNameInput.fill(newArticleName);
     await page.waitForTimeout(500);
 
-    // --- 設定確認（録画 1.json 確認済み: beyondページ複製でも必要）---
     console.log(`  - 「設定確認」をクリックします。`);
     await page.getByText('設定確認', { exact: true }).last().click();
     await page.waitForTimeout(2000);
 
-    // --- 複製実行 ---
     console.log(`  - 「この内容でページを複製する」をクリックします。`);
     await page.getByText('この内容でページを複製する', { exact: true }).last().click();
 
     // =========================================================
-    // [Step 6] 複製完了待機 → destFolder検索 → 記事名検索 → hover → 編集ボタン → URL取得
-    // フロー: /folders → サイドメニューdestFolder検索・クリック
-    //         → コンテンツ内newArticleName検索 → hover → 右の編集ボタンクリック
-    //         → コピーボタン → clipboard取得
+    // [Step 6] 複製完了待機 → destFolder検索 → URL取得
     // =========================================================
     console.log(`  => ⏳ 複製処理の完了を待機しています... (10秒)`);
     await page.waitForTimeout(10000);
 
     console.log(`\n[Step 6] 複製されたページのURLを取得します。`);
 
-    // /folders へ移動
     await page.goto('https://app.squadbeyond.com/folders');
     await page.waitForLoadState('load');
     await page.waitForTimeout(2000);
 
-    // 検索ボタン: [data-testid="side-menu"] の button
     console.log(`  - 複製先フォルダ「${destFolder}」を検索します。`);
-    await page.locator('[data-testid="side-menu"] button').first().click();
-    await page.waitForTimeout(800);
-
-    const sideInputForUrl = page.locator('input').first();
-    await sideInputForUrl.waitFor({ state: 'visible', timeout: 10000 });
-    await sideInputForUrl.fill(destFolder);
+    const searchTrigger2 = page.locator('input[placeholder*="検索"], [placeholder*="検索"]').first();
+    if (await searchTrigger2.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await searchTrigger2.click();
+    } else {
+        await page.getByText('検索', { exact: true }).first().click();
+    }
     await page.waitForTimeout(1500);
 
-    // 「フォルダ」タブ: /^フォルダ/ 前方一致
+    const sideInputForUrl = page.locator('div[role="dialog"] input').first().or(page.locator('input').last());
+    await sideInputForUrl.waitFor({ state: 'visible', timeout: 10000 });
+    await sideInputForUrl.fill(destFolder);
+    await page.waitForTimeout(2000);
+
     const folderTab6 = page.locator('span').filter({ hasText: /^フォルダ/ }).last();
     await folderTab6.waitFor({ state: 'visible', timeout: 10000 });
     await folderTab6.click();
     await page.waitForTimeout(1000);
 
-    // mark要素をクリック（JSON: [data-testid="list-menu-item"]/div[2]/span/mark）
     console.log(`  - フォルダ「${destFolder}」をクリックします。`);
     const markForUrl = page.locator('[data-testid="list-menu-item"] mark').first();
     await markForUrl.waitFor({ state: 'visible', timeout: 10000 });
     await markForUrl.click();
     await page.waitForTimeout(3000);
 
-    // コンテンツエリアの検索ボタンで記事名を検索（Step 3 と同じセレクター）
     console.log(`  - コンテンツ内で記事「${newArticleName}」を検索します。`);
-    await page.locator('button.efy50tl0').click();
-    await page.waitForTimeout(500);
-    await page.locator('div.css-68s747 input').first().fill(newArticleName);
+    const folderSearchInput2 = page.locator('input[placeholder*="フォルダ内検索"], input[placeholder*="検索"]').last();
+    if (!(await folderSearchInput2.isVisible({ timeout: 2000 }).catch(() => false))) {
+        await page.locator('button.efy50tl0').click().catch(() => {});
+        await page.waitForTimeout(500);
+    }
+    await folderSearchInput2.waitFor({ state: 'visible', timeout: 10000 });
+    await folderSearchInput2.fill(newArticleName);
     await page.waitForTimeout(3000);
 
-    // 記事名をクリック → 右サイドバーが開く
     console.log(`  - 記事「${newArticleName}」をクリックして右サイドバーを開きます。`);
     const targetArticleRow = page.locator('[data-testid="list-menu-item"]')
       .filter({ hasText: newArticleName }).first();
@@ -307,12 +289,10 @@ const axios = require('axios');
     await targetArticleRow.getByText(newArticleName, { exact: true }).first().click();
     await page.waitForTimeout(1500);
 
-    // URLコピーボタンをクリック
     console.log(`  - URLコピーボタンをクリックします。`);
     await page.getByRole('button', { name: 'コピー' }).first().click();
     await page.waitForTimeout(500);
 
-    // クリップボードからURL取得
     const finalUrl = await page.evaluate(() => navigator.clipboard.readText());
     console.log(`  => 🎉 取得したURL: ${finalUrl}`);
 
@@ -326,7 +306,6 @@ const axios = require('axios');
     console.error(`\n❌ エラー発生:\n`, error);
     await page.screenshot({ path: 'duplicate-error-screenshot.png', fullPage: true });
 
-    // DOM診断：UIが変わったときのセレクター特定用
     console.log('\n========== DOM診断ログ ==========');
     console.log('[現在URL]', page.url());
     const diagTargets = [

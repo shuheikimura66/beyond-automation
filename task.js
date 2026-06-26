@@ -6,7 +6,8 @@ const axios = require('axios');
   const context = await browser.newContext({
     viewport: { width: 1372, height: 841 }
   });
-  const page = await context.newPage();
+  // ★const から let に変更（後で新しいタブに上書きするため）
+  let page = await context.newPage();
 
   // =========================================================
   // 1. 変数の設定
@@ -33,7 +34,7 @@ const axios = require('axios');
     console.log(`=========================================`);
 
     // =========================================================
-    // [Step 1] ログイン処理（変更なし）
+    // [Step 1] ログイン処理
     // =========================================================
     console.log(`\n[Step 1] ターゲットURLにアクセスします: ${targetUrl}`);
     await page.goto(targetUrl);
@@ -42,7 +43,6 @@ const axios = require('axios');
 
     const emailInput = page.locator('input[name="email"]');
 
-    // --- [1] 初回ログイン ---
     if (await emailInput.isVisible().catch(() => false)) {
       console.log(`  => 🔑 ログイン画面を検知。一度ログインします。`);
       await emailInput.fill(process.env.SQUADBEYOND_ID);
@@ -54,7 +54,6 @@ const axios = require('axios');
       await page.waitForTimeout(4000);
     }
 
-    // --- [2] 強制ログアウト ---
     console.log(`\n[Step 1.1] システムバグ回避のため、強制ログアウトを実行します。`);
     try {
       const profileIcon = page.locator('div').filter({ hasText: /^小$/ }).last();
@@ -73,7 +72,6 @@ const axios = require('axios');
       console.log(`  => ⚠️ ログアウトスキップ（すでにログアウト済み等）`);
     }
 
-    // --- [3] 再ログイン ---
     console.log(`\n[Step 1.2] クリーンな状態で再度ログインを実行します。`);
     if (await emailInput.isVisible().catch(() => false)) {
       await emailInput.fill(process.env.SQUADBEYOND_ID);
@@ -85,7 +83,6 @@ const axios = require('axios');
       await page.waitForTimeout(4000);
     }
 
-    // --- [4] フルアウト選択 ---
     console.log(`\n[Step 1.3] チーム「フルアウト」を選択します。`);
     try {
       const fulloutDiv = page.locator('div').filter({ hasText: /^フルアウト$/ }).last();
@@ -97,13 +94,7 @@ const axios = require('axios');
       console.log(`  => ⚠️ フルアウト選択スキップ（自動遷移した可能性があります）`);
     }
 
-    // =========================================================
-    // [Step 1.5] ページメニュークリック（更新：新UIセレクター）
-    // 旧: SVGパス path[d^="M11 8.5V6.75C11 5.50736"] でフィルター
-    // 新: data-testid="list-menu-item" の3番目をクリック
-    // =========================================================
     console.log(`\n[Step 1.5] 「ページ」メニューをクリックします。`);
-    // ナビゲーションが揃うまで待機してからクリック
     await page.waitForLoadState('networkidle').catch(() => {});
     await page.locator('[data-testid="list-menu-item"]').nth(2).waitFor({ state: 'visible', timeout: 20000 });
     await page.locator('[data-testid="list-menu-item"]').nth(2).click();
@@ -114,42 +105,33 @@ const axios = require('axios');
     // [Step 2] フォルダ作成（新UIフロー）
     // =========================================================
     console.log(`\n[Step 2] コピー先のフォルダを新規作成します（新UIフロー）。`);
-
     console.log(`  - フォルダ作成アイコンをクリックします。`);
     await page.locator('[data-testid="generate-folder-icon"]').click();
     await page.waitForTimeout(1000);
 
-    // 旧: "フォルダ作成" / 新: "フォルダ作成..."（末尾に...が追加）
     console.log(`  - 「フォルダ作成...」をクリックします。`);
     await page.getByText('フォルダ作成...', { exact: true }).click();
     await page.waitForTimeout(1000);
 
-    // 新: ラジオボタンで「独自ドメイン」を選択（1回だけクリック）
     console.log(`  - 「独自ドメイン」を選択します。`);
     await page.getByText('独自ドメイン', { exact: true }).click();
-    await page.waitForTimeout(1500); // comboboxが有効になるまで待機
+    await page.waitForTimeout(1500); 
 
-    // 「独自ドメインを選択する」comboboxが有効になったらクリック
     const domainCombobox = page.getByRole('combobox').filter({ hasText: '独自ドメインを選択する' });
     await domainCombobox.waitFor({ state: 'visible' });
     await domainCombobox.click();
     await page.waitForTimeout(500);
 
-    // ドメインを入力して絞り込み
     console.log(`  - ドメイン「${domain}」を入力します。`);
     await page.locator('input').last().fill(domain);
     await page.waitForTimeout(1000);
-
-    // ドロップダウンから一致するドメインを選択して確定
     await page.getByText(domain, { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
-    // div.css-1vn620w はグループ選択を開くトリガーボタン（forceなし）
     console.log(`  - グループ選択を開きます。`);
     await page.locator('div.css-1vn620w').click();
     await page.waitForTimeout(1000);
 
-    // グループのポップオーバーが開いたらinputが現れるので入力
     console.log(`  - グループ「${groupListDest}」を入力して選択します。`);
     const groupInput = page.locator('input').last();
     await groupInput.waitFor({ state: 'visible', timeout: 5000 });
@@ -158,118 +140,119 @@ const axios = require('axios');
     await page.getByText(groupListDest, { exact: true }).last().click();
     await page.waitForTimeout(500);
 
-    // 設定確認
     await page.getByText('設定確認', { exact: true }).click();
     await page.waitForTimeout(1000);
 
-    // 作成する
     console.log(`  - 「作成する」をクリックしてフォルダを作成します。`);
     await page.locator('div.css-1wtvhju').getByText('作成する', { exact: true }).click();
     console.log(`  => ⏳ フォルダ作成中...`);
     await page.waitForTimeout(5000);
 
     // =========================================================
-    // [Step 2.5] フォルダ名称変更（新UIで追加されたフロー）
-    // 旧: 作成ダイアログ内でフォルダ名を入力していた
-    // 新: 作成後にサイドバーから「名称変更」で設定する
+    // [Step 2.5] フォルダ名称変更
     // =========================================================
     console.log(`\n[Step 2.5] 作成したフォルダを「${destFolder}」に名称変更します。`);
-
-    // ダイアログが完全に閉じるまで待つ
     await page.locator('div[role="dialog"]').waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {});
     await page.waitForTimeout(2000);
 
-    // /folders に直接移動
     console.log(`  - /folders に移動してページ一覧ビューに戻ります。`);
     await page.goto('https://app.squadbeyond.com/folders');
     await page.waitForLoadState('load');
     await page.waitForTimeout(2000);
 
-    // 左上の「検索」ボタンをクリックして検索パネルを開く
-    // （録画時はパネルが開いた状態から始まっていたため、このクリックが必要）
-    console.log(`  - 「検索」ボタンをクリックして検索パネルを開きます。`);
-    await page.getByRole('button', { name: /^検索$/ }).first().click();
-    await page.waitForTimeout(800);
+    // ★修正: 検索モーダル起動
+    console.log(`  - 「検索」をクリックして検索パネルを開きます。`);
+    const searchTrigger1 = page.locator('input[placeholder*="検索"], [placeholder*="検索"]').first();
+    if (await searchTrigger1.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await searchTrigger1.click();
+    } else {
+        await page.getByText('検索', { exact: true }).first().click();
+    }
+    await page.waitForTimeout(1500);
 
-    // モーダル内の検索inputで「新しいフォルダ」を入力
     console.log(`  - 「新しいフォルダ」を検索します。`);
-    const sideMenuInput = page.locator('input[placeholder*="検索"]').first();
-    await sideMenuInput.waitFor({ state: 'visible', timeout: 5000 });
+    // ★修正: モーダル内 input 取得
+    const sideMenuInput = page.locator('div[role="dialog"] input').first().or(page.locator('input').last());
+    await sideMenuInput.waitFor({ state: 'visible', timeout: 10000 });
     await sideMenuInput.fill('新しいフォルダ');
+    await page.waitForTimeout(2000);
+
+    await page.getByText(/^フォルダ/).last().click();
     await page.waitForTimeout(1000);
 
-    // 新UI: 「フォルダ」タブをクリックしてフォルダに絞り込む（モーダル内 = .last()）
-    await page.getByText('フォルダ', { exact: true }).last().click();
-    await page.waitForTimeout(1000);
-
-    // 検索結果にhoverして3ドットボタンを出現させる
     const newFolderMark = page.locator('mark').filter({ hasText: '新しいフォルダ' }).first();
     await newFolderMark.waitFor({ state: 'visible', timeout: 10000 });
     await newFolderMark.hover();
     await page.waitForTimeout(500);
 
-    // 3ドットボタンをクリック
     console.log(`  - 3ドットボタンをクリックします。`);
     await page.locator('[data-testid="option-icon"]').first().click();
     await page.waitForTimeout(500);
 
-    // 名称変更
     await page.getByText('名称変更', { exact: true }).click();
     await page.waitForTimeout(500);
-
-    // 全選択して新しいフォルダ名を入力
     await page.keyboard.press('Control+A');
     await page.keyboard.type(destFolder, { delay: 50 });
     await page.keyboard.press('Enter');
     await page.waitForTimeout(2000);
+    await page.keyboard.press('Escape'); // モーダルが開いていれば閉じる
 
     // =========================================================
     // [Step 3] コピー元フォルダを検索パネルで直接検索してクリック
     // =========================================================
     console.log(`\n[Step 3] 原本フォルダ「${sourceFolder}」を検索します。`);
 
-    // モーダルが閉じていれば再度開く
-    const sideMenuInput3 = page.locator('input[placeholder*="検索"]').first();
-    if (!(await sideMenuInput3.isVisible({ timeout: 1500 }).catch(() => false))) {
-      console.log(`  - 「検索」ボタンをクリックしてモーダルを開きます。`);
-      await page.getByRole('button', { name: /^検索$/ }).first().click();
-      await page.waitForTimeout(800);
+    // ★修正: 検索モーダル再起動（閉じている場合）
+    const searchTrigger2 = page.locator('input[placeholder*="検索"], [placeholder*="検索"]').first();
+    if (await searchTrigger2.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await searchTrigger2.click();
+    } else {
+        await page.getByText('検索', { exact: true }).first().click().catch(() => {});
     }
+    await page.waitForTimeout(1500);
 
-    // sourceFolder を検索
     console.log(`  - 「${sourceFolder}」を検索してクリックします。`);
+    // ★修正: モーダル内 input 取得
+    const sideMenuInput3 = page.locator('div[role="dialog"] input').first().or(page.locator('input').last());
+    await sideMenuInput3.waitFor({ state: 'visible', timeout: 10000 });
     await sideMenuInput3.fill(sourceFolder);
+    await page.waitForTimeout(2000);
+
+    await page.getByText(/^フォルダ/).last().click();
     await page.waitForTimeout(1000);
 
-    // 新UI: 「フォルダ」タブをクリックしてフォルダに絞り込む（モーダル内 = .last()）
-    await page.getByText('フォルダ', { exact: true }).last().click();
-    await page.waitForTimeout(1000);
-
-    // 検索結果のmark要素をクリックしてフォルダへ移動
-    await page.locator('mark').filter({ hasText: sourceFolder }).first().click();
+    // ★修正: 新タブ遷移の捕捉
+    const sourceFolderMark = page.locator('mark').filter({ hasText: sourceFolder }).first();
+    await sourceFolderMark.waitFor({ state: 'visible', timeout: 10000 });
+    
+    console.log(`  => 📄 新しいタブが開くのを待機します...`);
+    const [newPageSource] = await Promise.all([
+      context.waitForEvent('page'),
+      sourceFolderMark.click()
+    ]);
+    page = newPageSource; // これ以降、RPAの操作対象を新しいタブに切り替える
+    await page.waitForLoadState('load');
     await page.waitForTimeout(3000);
 
     // =========================================================
     // [Step 4] 記事検索（新UIセレクター）
     // =========================================================
-    console.log(`\n[Step 4] フォルダ内で記事「${sourceArticle}」を検索します。`);
+    console.log(`\n[Step 4] 新しいタブのフォルダ内で記事「${sourceArticle}」を検索します。`);
 
-    // 旧: getByText('フォルダ内検索') / 新: button.efy50tl0
-    await page.locator('button.efy50tl0').click();
-    await page.waitForTimeout(500);
-
-    // 旧: input[placeholder*="内を検索"] / 新: div.css-68s747 input
-    await page.locator('div.css-68s747 input').first().fill(sourceArticle);
+    const folderSearchInput = page.locator('input[placeholder*="フォルダ内検索"], input[placeholder*="検索"]').last();
+    if (!(await folderSearchInput.isVisible({ timeout: 2000 }).catch(() => false))) {
+        await page.locator('button.efy50tl0').click().catch(() => {});
+        await page.waitForTimeout(500);
+    }
+    await folderSearchInput.waitFor({ state: 'visible', timeout: 10000 });
+    await folderSearchInput.fill(sourceArticle);
     await page.waitForTimeout(3000);
 
     // =========================================================
     // [Step 5] 「別フォルダへ複製」を選択
-    // 旧: button.css-16dhtfm（生成クラス）
-    // 新: [data-testid='option-icon']（録画から取得）
     // =========================================================
     console.log(`\n[Step 5] 「別フォルダへ複製」を選択します。`);
 
-    // 記事行にhoverしてoption-iconを出現させてからクリック
     const articleItem = page.getByText(sourceArticle, { exact: true }).first();
     await articleItem.waitFor({ state: 'visible', timeout: 10000 });
     await articleItem.hover();
@@ -281,65 +264,57 @@ const axios = require('axios');
     await page.waitForTimeout(2000);
 
     // =========================================================
-    // [Step 6] 複製設定（録画セレクターに更新）
+    // [Step 6] 複製設定
     // =========================================================
     console.log(`\n[Step 6] 複製ウィザードを進めます（新UI対応）。`);
 
     const activeModal = page.locator('div[role="dialog"]').last();
 
-    // 複製先チーム選択
     console.log(`  - 複製先チームを「現在のチーム内」に設定します。`);
     await activeModal.locator('section:nth-of-type(1) div.css-18ji2p4 > div').click();
     await page.waitForTimeout(500);
     await page.getByText('現在のチーム内', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
-    // 複製先フォルダ選択
     console.log(`  - 複製先フォルダ「${destFolder}」を選択します。`);
     await activeModal.locator('section:nth-of-type(2) div.css-18ji2p4 > div').click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1000);
 
-    // フォルダ名を入力して絞り込み
-    await page.locator('div:nth-of-type(10) input').fill(destFolder);
+    console.log(`  - 検索窓にフォルダ名を入力します。`);
+    // ★修正: nth-of-type(10) を廃止し、最後に展開された input を取得
+    const destFolderSearchInput = page.locator('input').last();
+    await destFolderSearchInput.waitFor({ state: 'visible', timeout: 5000 });
+    await destFolderSearchInput.fill(destFolder);
     await page.waitForTimeout(2000);
 
-    // グループをクリックして展開
     await page.getByText(groupListDest, { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
-    // フォルダをクリック
-    // 旧: div.css-d3v9zr div.css-79rqsy（生成クラス）
-    // 新: [data-testid="list-menu-item"] div:nth-of-type(2)（録画から取得）
+    // ★修正: xpath=div[2] を使用して strict mode violation を防止
     await page.locator('[data-testid="list-menu-item"]')
       .filter({ hasText: destFolder }).last()
-      .locator('div:nth-of-type(2)').click();
+      .locator('xpath=div[2]').click();
     await page.waitForTimeout(1000);
 
-    // 配信URL入力（録画 0607_1.json: section[3] → URL input → Tab でblur）
     if (deliveryUrl) {
       console.log(`  - 配信URLを入力します: ${deliveryUrl}`);
       const urlInput = activeModal.locator('section:nth-of-type(3) input').first();
       await urlInput.waitFor({ state: 'visible', timeout: 5000 });
       await urlInput.click();
       await urlInput.fill(deliveryUrl);
-      await page.keyboard.press('Tab'); // blur してバリデーション確定（録画のコンテナクリックと同等）
+      await page.keyboard.press('Tab'); 
       await page.waitForTimeout(500);
     }
 
-    // ページ名accordion → 入力（録画: 「🙆いつでも変更可能です」クリック後に name input）
     const pageNameAccordion = page.getByText('いつでも変更可能です').last();
     if (await pageNameAccordion.isVisible({ timeout: 2000 }).catch(() => false)) {
       await pageNameAccordion.click();
       await page.waitForTimeout(800);
-      // ページ名は自動生成のまま（task.js では newArticleName を使わない）
-      // → inputに触れず skip（ランダム文字列が自動設定される）
     }
 
-    // 設定確認（録画: 別フォルダへ複製では必要）
     await page.getByText('設定確認', { exact: true }).last().click();
     await page.waitForTimeout(2000);
 
-    // 複製実行
     console.log(`  - 「この内容でページを複製する」をクリックします。`);
     await page.getByText('この内容でページを複製する', { exact: true }).last().click();
 
@@ -357,7 +332,6 @@ const axios = require('axios');
     console.error(`\n❌ エラー発生:\n`, error);
     await page.screenshot({ path: 'error-screenshot.png', fullPage: true });
 
-    // DOM診断：UIが変わったときのセレクター特定用
     console.log('\n========== DOM診断ログ ==========');
     console.log('[現在URL]', page.url());
     const diagTargets = [

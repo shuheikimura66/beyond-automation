@@ -52,7 +52,6 @@ const axios = require('axios');
       console.log(`  => 🔑 ログイン画面を検知。人間らしい速度で入力します。`);
       await emailInput.click();
       await emailInput.clear();
-      // ★Bot検知回避: 50ミリ秒間隔で1文字ずつタイピングする
       await emailInput.pressSequentially(process.env.SQUADBEYOND_ID, { delay: 50 });
       await page.waitForTimeout(500);
 
@@ -64,7 +63,6 @@ const axios = require('axios');
       console.log(`  => ⏳ ログインボタンをクリックして遷移を待機します...`);
       await page.getByRole('button', { name: 'ログイン' }).first().click();
 
-      // ★/users/teams への遷移か、メニューの出現を待つ
       try {
         await Promise.race([
             page.waitForURL('**/users/teams', { timeout: 20000 }),
@@ -78,7 +76,6 @@ const axios = require('axios');
     }
 
     console.log(`\n[Step 1.1] 状態リセット（強制ログアウトまたはリロード）`);
-    // ★万が一無限ロードに陥っていた場合、強制的にURLを再読み込みしてぐるぐるを解除する
     await page.goto(targetUrl);
     await page.waitForLoadState('load');
     await page.waitForTimeout(2000);
@@ -114,7 +111,6 @@ const axios = require('axios');
       await passInput.pressSequentially(process.env.SQUADBEYOND_PASS, { delay: 50 });
       await page.waitForTimeout(1000);
 
-      // Step 1.1のリロードによりボタンは確実に押せる状態になっている
       console.log(`  => ⏳ ログインボタンをクリックして遷移を待機します...`);
       await page.getByRole('button', { name: 'ログイン' }).first().click();
 
@@ -134,13 +130,11 @@ const axios = require('axios');
     // =========================================================
     console.log(`\n[Step 1.3] チーム「フルアウト」を選択します。`);
     try {
-      // サイドバーに直接「フルアウト」というテキストが出現するのを待つ
       const fulloutItem = page.locator('div, [data-testid="list-menu-item"]').filter({ hasText: /^フルアウト$/ }).first();
       if (await fulloutItem.isVisible({ timeout: 10000 }).catch(() => false)) {
         await fulloutItem.click();
         console.log(`  => ✅ フルアウト選択完了`);
         
-        // フルアウト選択後、ダッシュボード(/)へ遷移するのを待つ
         await page.waitForURL('https://app.squadbeyond.com/', { timeout: 10000 }).catch(() => {});
         await page.waitForLoadState('load');
         await page.waitForTimeout(3000);
@@ -215,7 +209,7 @@ const axios = require('axios');
     await page.waitForTimeout(5000);
 
     // =========================================================
-    // [Step 2.5] フォルダ名称変更（検索パネル → 新タブ → 右パネル編集）
+    // [Step 2.5] フォルダ名称変更（インライン編集対応）
     // =========================================================
     console.log(`\n[Step 2.5] 作成したフォルダを「${destFolder}」に名称変更します。`);
     await page.locator('div[role="dialog"]').waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {});
@@ -256,30 +250,40 @@ const axios = require('axios');
     await page.waitForLoadState('load');
     await page.waitForTimeout(3000);
 
-    console.log(`  - 新タブのサイドバーで「新しいフォルダ」をクリックし、設定パネルを開きます。`);
+    // ★大修正: JSONの録画通り、左サイドバーでのインライン編集を実行する
+    console.log(`  - 新タブのサイドバーで「新しいフォルダ」をホバーし、名称変更メニューを開きます。`);
     const targetNewFolder = page.locator('[data-testid="list-menu-item"]').filter({ hasText: '新しいフォルダ' }).first();
     await targetNewFolder.waitFor({ state: 'visible', timeout: 10000 });
-    await targetNewFolder.click();
-    await page.waitForTimeout(1500); 
+    await targetNewFolder.hover();
+    await page.waitForTimeout(500);
 
-    console.log(`  - 右パネルの「名称変更」欄でフォルダ名を入力して保存します。`);
+    console.log(`  - 3ドットメニューをクリックします。`);
     try {
-        const renameLabel = page.getByText('名称変更', { exact: true }).last();
-        await renameLabel.waitFor({ state: 'visible', timeout: 5000 });
-        await renameLabel.scrollIntoViewIfNeeded();
-        await renameLabel.click();
-        await page.waitForTimeout(800);
-    } catch (e) {
-        console.log(`  => ⚠️ 「名称変更」ボタンが見つかりません。フォールバックで直接inputをクリックします。`);
-        await page.locator('input').last().click();
+        await targetNewFolder.locator('button:has(svg), [data-testid="option-icon"]').last().click({ timeout: 3000 });
+    } catch(e) {
+        // フォールバック
+        await targetNewFolder.locator('svg').last().click();
     }
+    await page.waitForTimeout(500);
 
+    console.log(`  - 「名称変更」をクリックします。`);
+    await page.getByText('名称変更', { exact: true }).last().click();
+    await page.waitForTimeout(500);
+
+    console.log(`  - インライン入力欄にフォルダ名を入力して保存します。`);
+    const renameInput = targetNewFolder.locator('input').first();
+    await renameInput.waitFor({ state: 'visible', timeout: 5000 });
+    await renameInput.click();
     await page.keyboard.press('Control+A');
     await page.keyboard.press('Meta+A'); 
     await page.keyboard.press('Backspace');
-    await page.keyboard.type(destFolder, { delay: 50 });
+    
+    // JSONの録画に合わせ、ここでもpressSequentiallyでBot検知回避しつつ入力
+    await renameInput.pressSequentially(destFolder, { delay: 50 });
     await page.waitForTimeout(500);
-    await page.keyboard.press('Enter');
+    
+    console.log(`  - Enterキーで確定します。`);
+    await renameInput.press('Enter');
     await page.waitForTimeout(3000);
 
     // =========================================================

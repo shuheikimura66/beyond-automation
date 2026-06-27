@@ -1,5 +1,23 @@
 # Bug Fix Log — beyond-automation / task.js
 
+## [2026-06-27] #039 — duplicate_page_task.js: ログイン時の無限ロード（ぐるぐるフリーズ）対策とBot検知回避
+
+**対象ファイル**
+`duplicate_page_task.js` (Step 1, Step 1.1, Step 1.2)
+
+**問題**
+- ログイン画面でパスワード入力後に「ログイン」ボタンを押すと、ボタンがローディング状態（ぐるぐる）のままフリーズし、画面が遷移しない。
+- 結果として、後続の処理でタイムアウトエラー（Timeout 30000ms exceeded）が発生する。手動操作では1〜2秒で遷移できる状態だった。
+
+**原因**
+- Playwrightの `fill()` メソッドによるテキスト入力が瞬時（0秒）に行われるため、SquadBeyond側のセキュリティ層（Cloudflare等のBot検知・スパム対策）に「人間ではない」と判定され、裏側でログイン通信が遮断されていた可能性が高い。
+
+**修正**
+1. **人間らしい入力の再現**: `fill()` を廃止し、`pressSequentially(..., { delay: 50 })` を使用して人間がキーボードを打つ速度（1文字50ミリ秒間隔）をシミュレートし、Bot検知を回避。
+2. **強制リセットの導入**: 万が一無限ロードに陥った場合に備え、状態リセット処理（Step 1.1）の前に `page.goto(targetUrl)` で強制リロードを挟み、DOMをクリーンに保つように変更。
+3. **柔軟な遷移待機**: ログイン完了の待機処理に `Promise.race` を導入し、チーム選択画面（`**/users/teams`）へのURL遷移、またはメニュー要素（`[data-testid="list-menu-item"]`）の出現のどちらかを待機するよう堅牢化。
+
+
 ## [2026-06-26] #038 — duplicate_page_task.js: waitForSelector のセレクター修正 + Step 1.2でdisabledボタン対策
 
 **対象ファイル**

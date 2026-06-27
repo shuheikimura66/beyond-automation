@@ -4,7 +4,9 @@ const axios = require('axios');
 (async () => {
   const browser = await chromium.launch();
   const context = await browser.newContext({
-    viewport: { width: 1372, height: 841 }
+    viewport: { width: 1372, height: 841 },
+    // 少しでもBot感を減らすためのユーザーエージェント設定を追加
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
   });
   let page = await context.newPage();
 
@@ -33,50 +35,64 @@ const axios = require('axios');
     console.log(`=========================================`);
 
     // =========================================================
-    // [Step 1] ログイン処理
+    // [Step 1] ログイン処理（人間らしい入力でBot検知回避）
     // =========================================================
     console.log(`\n[Step 1] ターゲットURLにアクセスします: ${targetUrl}`);
     await page.goto(targetUrl);
     
     try {
         await page.waitForSelector('input[name="email"], input[type="email"], [data-testid="list-menu-item"]', { timeout: 15000 });
-    } catch(e) {
-        console.log(`  => ⚠️ ページ読み込み遅延、またはBot検知の可能性があります。`);
-    }
+    } catch(e) {}
 
     const emailInput = page.locator('input[name="email"], input[type="email"]').first();
     const passInput = page.locator('input[name="password"], input[type="password"]').first();
-    const loginBtn = page.locator('button:has-text("ログイン"), input[type="submit"], button[type="submit"]').first();
 
+    // 1回目のログイン
     if (await emailInput.isVisible().catch(() => false)) {
-      console.log(`  => 🔑 ログイン画面を検知。一度ログインします。`);
-      await emailInput.fill(process.env.SQUADBEYOND_ID);
+      console.log(`  => 🔑 ログイン画面を検知。人間らしい速度で入力します。`);
+      await emailInput.click();
+      await emailInput.clear();
+      // ★Bot検知回避: 50ミリ秒間隔で1文字ずつタイピングする
+      await emailInput.pressSequentially(process.env.SQUADBEYOND_ID, { delay: 50 });
       await page.waitForTimeout(500);
-      await passInput.fill(process.env.SQUADBEYOND_PASS);
-      await page.waitForTimeout(500);
-      await loginBtn.click();
-      
-      // ★修正: 固定の4秒待機を廃止し、ダッシュボードの出現を最大20秒待つ
-      console.log(`  => ⏳ ログイン認証の完了を待機中...`);
-      await page.waitForSelector('[data-testid="list-menu-item"]', { timeout: 20000 }).catch(() => {});
-      await page.waitForLoadState('load');
+
+      await passInput.click();
+      await passInput.clear();
+      await passInput.pressSequentially(process.env.SQUADBEYOND_PASS, { delay: 50 });
+      await page.waitForTimeout(1000);
+
+      console.log(`  => ⏳ ログインボタンをクリックして遷移を待機します...`);
+      await page.getByRole('button', { name: 'ログイン' }).first().click();
+
+      // ★/users/teams への遷移か、メニューの出現を待つ
+      try {
+        await Promise.race([
+            page.waitForURL('**/users/teams', { timeout: 20000 }),
+            page.waitForSelector('[data-testid="list-menu-item"]', { timeout: 20000 })
+        ]);
+        console.log(`  => ✅ ログイン通信完了 (URL: ${page.url()})`);
+      } catch (e) {
+        console.log(`  => ⚠️ 遷移タイムアウト。無限ロードの可能性があります。`);
+      }
       await page.waitForTimeout(2000);
     }
 
-    console.log(`\n[Step 1.1] システムバグ回避のため、強制ログアウトを実行します。`);
+    console.log(`\n[Step 1.1] 状態リセット（強制ログアウトまたはリロード）`);
+    // ★万が一無限ロードに陥っていた場合、強制的にURLを再読み込みしてぐるぐるを解除する
+    await page.goto(targetUrl);
+    await page.waitForLoadState('load');
+    await page.waitForTimeout(2000);
+
     try {
       const profileIcon = page.locator('div').filter({ hasText: /^小$/ }).last();
       if (await profileIcon.isVisible().catch(() => false)) {
         await profileIcon.click();
-      } else {
-        await page.locator('[data-testid="list-menu-item"]').nth(-2).click();
+        await page.waitForTimeout(1000);
+        await page.getByText('ログアウト', { exact: true }).last().click();
+        console.log(`  => ✅ ログアウト完了`);
+        await page.waitForLoadState('load');
+        await page.waitForTimeout(3000);
       }
-      await page.waitForTimeout(1500);
-      const logoutBtn = page.getByText('ログアウト', { exact: true }).last();
-      await logoutBtn.click();
-      console.log(`  => ✅ ログアウト完了`);
-      await page.waitForLoadState('load');
-      await page.waitForTimeout(3000);
     } catch(e) {
       console.log(`  => ⚠️ ログアウトスキップ（すでにログアウト済み等）`);
     }
@@ -85,30 +101,63 @@ const axios = require('axios');
     try {
         await page.waitForSelector('input[name="email"], input[type="email"], [data-testid="list-menu-item"]', { timeout: 10000 });
     } catch(e) {}
-    
+
+    // 2回目のログイン
     if (await emailInput.isVisible().catch(() => false)) {
-      await emailInput.fill(process.env.SQUADBEYOND_ID);
+      await emailInput.click();
+      await emailInput.clear();
+      await emailInput.pressSequentially(process.env.SQUADBEYOND_ID, { delay: 50 });
       await page.waitForTimeout(500);
-      await passInput.fill(process.env.SQUADBEYOND_PASS);
-      await page.waitForTimeout(500);
-      await loginBtn.click();
-      
-      // ★修正: ここでもしっかり認証を待つ
-      console.log(`  => ⏳ ログイン認証の完了を待機中...`);
-      await page.waitForSelector('[data-testid="list-menu-item"]', { timeout: 20000 }).catch(() => {});
-      await page.waitForLoadState('load');
+
+      await passInput.click();
+      await passInput.clear();
+      await passInput.pressSequentially(process.env.SQUADBEYOND_PASS, { delay: 50 });
+      await page.waitForTimeout(1000);
+
+      // Step 1.1のリロードによりボタンは確実に押せる状態になっている
+      console.log(`  => ⏳ ログインボタンをクリックして遷移を待機します...`);
+      await page.getByRole('button', { name: 'ログイン' }).first().click();
+
+      try {
+        await Promise.race([
+            page.waitForURL('**/users/teams', { timeout: 20000 }),
+            page.waitForSelector('[data-testid="list-menu-item"]', { timeout: 20000 })
+        ]);
+      } catch (e) {
+        console.log(`  => ⚠️ 再ログイン遷移タイムアウト`);
+      }
       await page.waitForTimeout(2000);
     }
 
+    // =========================================================
+    // [Step 1.3] チーム「フルアウト」を選択
+    // =========================================================
     console.log(`\n[Step 1.3] チーム「フルアウト」を選択します。`);
     try {
-      const fulloutDiv = page.locator('div').filter({ hasText: /^フルアウト$/ }).last();
-      await fulloutDiv.click();
-      console.log(`  => ✅ フルアウト選択完了`);
-      await page.waitForTimeout(5000);
-      await page.waitForLoadState('load');
+      // サイドバーに直接「フルアウト」というテキストが出現するのを待つ
+      const fulloutItem = page.locator('div, [data-testid="list-menu-item"]').filter({ hasText: /^フルアウト$/ }).first();
+      if (await fulloutItem.isVisible({ timeout: 10000 }).catch(() => false)) {
+        await fulloutItem.click();
+        console.log(`  => ✅ フルアウト選択完了`);
+        
+        // フルアウト選択後、ダッシュボード(/)へ遷移するのを待つ
+        await page.waitForURL('https://app.squadbeyond.com/', { timeout: 10000 }).catch(() => {});
+        await page.waitForLoadState('load');
+        await page.waitForTimeout(3000);
+      } else {
+        console.log(`  => ⚠️ フルアウト選択画面なし（スキップ）`);
+      }
     } catch(e) {
-      console.log(`  => ⚠️ フルアウト選択スキップ（自動遷移した可能性があります）`);
+      console.log(`  => ⚠️ フルアウト選択スキップ: ${e.message}`);
+    }
+
+    console.log(`\n[Step 1.4] UIデザインの確認を行います。`);
+    const newDesignBtn = page.locator('div, button').filter({ hasText: '新デザインを試す' }).last();
+    if (await newDesignBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      console.log(`  => 🎨 旧デザインを検知。新デザインに切り替えます。`);
+      await newDesignBtn.click();
+      await page.waitForLoadState('load');
+      await page.waitForTimeout(5000);
     }
 
     console.log(`\n[Step 1.5] 「ページ」メニューをクリックします。`);

@@ -51,7 +51,6 @@ const axios = require('axios');
       console.log(`  => 🔑 ログイン画面を検知。人間らしい速度で入力します。`);
       await emailInput.click();
       await emailInput.clear();
-      // ★Bot検知回避: 50ミリ秒間隔で1文字ずつタイピングする
       await emailInput.pressSequentially(process.env.SQUADBEYOND_ID, { delay: 50 });
       await page.waitForTimeout(500);
 
@@ -63,7 +62,6 @@ const axios = require('axios');
       console.log(`  => ⏳ ログインボタンをクリックして遷移を待機します...`);
       await page.getByRole('button', { name: 'ログイン' }).first().click();
 
-      // ★動画の挙動に合わせて、/users/teams への遷移か、メニューの出現を待つ
       try {
         await Promise.race([
             page.waitForURL('**/users/teams', { timeout: 20000 }),
@@ -75,10 +73,8 @@ const axios = require('axios');
       }
       await page.waitForTimeout(2000);
     }
-    await page.screenshot({ path: 'ss-01-after-first-login.png', fullPage: true });
 
     console.log(`\n[Step 1.1] 状態リセット（強制ログアウトまたはリロード）`);
-    // 万が一無限ロードに陥っていた場合、ここで強制的にURLを再読み込みしてぐるぐるを解除する
     await page.goto(targetUrl);
     await page.waitForLoadState('load');
     await page.waitForTimeout(2000);
@@ -96,7 +92,6 @@ const axios = require('axios');
     } catch(e) {
       console.log(`  => ⚠️ ログアウトスキップ（すでにログアウト済み等）`);
     }
-    await page.screenshot({ path: 'ss-02-after-logout.png', fullPage: true });
 
     console.log(`\n[Step 1.2] クリーンな状態で再度ログインを実行します。`);
     try {
@@ -115,7 +110,6 @@ const axios = require('axios');
       await passInput.pressSequentially(process.env.SQUADBEYOND_PASS, { delay: 50 });
       await page.waitForTimeout(1000);
 
-      // Step 1.1のリロードによりボタンは確実に押せる状態になっている
       console.log(`  => ⏳ ログインボタンをクリックして遷移を待機します...`);
       await page.getByRole('button', { name: 'ログイン' }).first().click();
 
@@ -129,20 +123,17 @@ const axios = require('axios');
       }
       await page.waitForTimeout(2000);
     }
-    await page.screenshot({ path: 'ss-03-after-relogin.png', fullPage: true });
 
     // =========================================================
-    // [Step 1.3] チーム「フルアウト」を選択 (動画 20-30-41 準拠)
+    // [Step 1.3] チーム「フルアウト」を選択
     // =========================================================
     console.log(`\n[Step 1.3] チーム「フルアウト」を選択します。`);
     try {
-      // 動画の通り、サイドバーに直接「フルアウト」というテキストが出現するのを待つ
       const fulloutItem = page.locator('div, [data-testid="list-menu-item"]').filter({ hasText: /^フルアウト$/ }).first();
       if (await fulloutItem.isVisible({ timeout: 10000 }).catch(() => false)) {
         await fulloutItem.click();
         console.log(`  => ✅ フルアウト選択完了`);
         
-        // フルアウト選択後、ダッシュボード(/)へ遷移するのを待つ
         await page.waitForURL('https://app.squadbeyond.com/', { timeout: 10000 }).catch(() => {});
         await page.waitForLoadState('load');
         await page.waitForTimeout(3000);
@@ -152,7 +143,6 @@ const axios = require('axios');
     } catch(e) {
       console.log(`  => ⚠️ フルアウト選択スキップ: ${e.message}`);
     }
-    await page.screenshot({ path: 'ss-06-after-fullout.png', fullPage: true });
 
     // =========================================================
     // [Step 2] コピー元フォルダへ移動（検索パネルを開いて検索）
@@ -228,10 +218,24 @@ const axios = require('axios');
     // =========================================================
     console.log(`\n[Step 4] 対象記事のメニューを開きます。`);
 
-    const articleItem = page.getByText(sourceArticle, { exact: true }).first();
-    await articleItem.waitFor({ state: 'visible', timeout: 10000 });
-    await articleItem.hover();
+    // ★大修正: 意図せぬポップアップや残存するツールチップを消すため、右側の安全なエリアをクリック
+    console.log(`  - 意図せぬポップアップを解除するため、画面右側をクリックします。`);
+    await page.mouse.click(1200, 400); 
     await page.waitForTimeout(500);
+
+    const articleItem = page.getByText(sourceArticle).first();
+    await articleItem.waitFor({ state: 'visible', timeout: 10000 });
+    
+    try {
+        await articleItem.hover({ timeout: 5000 });
+    } catch (e) {
+        console.log(`  => ⚠️ ホバーが妨害されました。再度背景をクリックしてリトライします。`);
+        await page.mouse.click(1200, 400);
+        await page.waitForTimeout(500);
+        await articleItem.hover();
+    }
+    await page.waitForTimeout(500);
+
     await page.locator('[data-testid="option-icon"]').first().click();
     await page.waitForTimeout(1000);
 
@@ -264,12 +268,13 @@ const axios = require('axios');
     await destFolderSearchInput.fill(destFolder);
     await page.waitForTimeout(2000);
 
+    // ★大修正: :visible でモーダル内のグループ要素を狙い、背景誤爆を防ぐ
     console.log(`  - グループ「${groupListDest}」をクリックして展開します。`);
-    await page.getByText(groupListDest, { exact: true }).last().click();
+    await page.locator('[data-testid="list-menu-item"]:visible').filter({ hasText: groupListDest }).last().click();
     await page.waitForTimeout(1000);
 
     console.log(`  - フォルダ「${destFolder}」をクリックします。`);
-    await page.locator('[data-testid="list-menu-item"]')
+    await page.locator('[data-testid="list-menu-item"]:visible')
       .filter({ hasText: destFolder }).last()
       .locator('xpath=div[2]').click();
     await page.waitForTimeout(1000);

@@ -182,11 +182,7 @@ const axios = require('axios');
     console.log(`  - ドメイン「${domain}」を入力します。`);
     await page.locator('input').last().fill(domain);
     await page.waitForTimeout(1000);
-    
-    // ドメインのドロップダウン選択
-    const targetDomain = page.getByText(domain).filter({ hasNot: page.locator('div') }).last();
-    await targetDomain.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
-    await targetDomain.click();
+    await page.getByText(domain).filter({ hasNot: page.locator('div') }).last().click();
     await page.waitForTimeout(1000);
 
     console.log(`  - グループ選択を開きます。`);
@@ -198,11 +194,7 @@ const axios = require('axios');
     await groupInput.waitFor({ state: 'visible', timeout: 5000 });
     await groupInput.fill(groupListDest);
     await page.waitForTimeout(1000);
-    
-    // ★大修正: リストアイテム属性を撤廃し、ポップオーバー内の最深テキスト要素を確実にとらえる
-    const targetCreateGroup = page.getByText(groupListDest).filter({ hasNot: page.locator('div') }).last();
-    await targetCreateGroup.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
-    await targetCreateGroup.click();
+    await page.getByText(groupListDest).filter({ hasNot: page.locator('div') }).last().click();
     await page.waitForTimeout(500);
 
     await page.getByText('設定確認', { exact: true }).click();
@@ -214,7 +206,7 @@ const axios = require('axios');
     await page.waitForTimeout(5000);
 
     // =========================================================
-    // [Step 2.5] フォルダ名称変更（インライン編集対応）
+    // [Step 2.5] フォルダ名称変更
     // =========================================================
     console.log(`\n[Step 2.5] 作成したフォルダを「${destFolder}」に名称変更します。`);
     await page.locator('div[role="dialog"]').waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {});
@@ -285,7 +277,7 @@ const axios = require('axios');
     await page.waitForTimeout(3000);
 
     // =========================================================
-    // [Step 3] コピー元フォルダを検索パネルで直接検索してクリック
+    // [Step 3] コピー元フォルダを検索
     // =========================================================
     console.log(`\n[Step 3] 原本フォルダ「${sourceFolder}」を検索します。`);
 
@@ -385,7 +377,6 @@ const axios = require('axios');
     await destFolderSearchInput.fill(destFolder);
     await page.waitForTimeout(2000);
 
-    // ★大修正: リストアイテムの条件を撤廃し、最も深くにあるテキスト要素を直接狙い撃ちする
     console.log(`  - グループ「${groupListDest}」をクリックして展開します。`);
     const targetGroup = page.getByText(groupListDest).filter({ hasNot: page.locator('div') }).last();
     await targetGroup.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});

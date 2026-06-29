@@ -6,7 +6,6 @@ const axios = require('axios');
   const context = await browser.newContext({
     viewport: { width: 1372, height: 841 },
     permissions: ['clipboard-read', 'clipboard-write'],
-    // 少しでもBot感を減らすためのユーザーエージェント設定
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
   });
   let page = await context.newPage();
@@ -34,7 +33,7 @@ const axios = require('axios');
     console.log(`=========================================`);
 
     // =========================================================
-    // [Step 1] ログイン処理（人間らしいタイピングでBot検知回避）
+    // [Step 1] ログイン処理
     // =========================================================
     console.log(`\n[Step 1] ターゲットURLにアクセスします: ${targetUrl}`);
     await page.goto(targetUrl);
@@ -46,7 +45,6 @@ const axios = require('axios');
     const emailInput = page.locator('input[name="email"], input[type="email"]').first();
     const passInput = page.locator('input[name="password"], input[type="password"]').first();
 
-    // 1回目のログイン
     if (await emailInput.isVisible().catch(() => false)) {
       console.log(`  => 🔑 ログイン画面を検知。人間らしい速度で入力します。`);
       await emailInput.click();
@@ -98,7 +96,6 @@ const axios = require('axios');
         await page.waitForSelector('input[name="email"], input[type="email"], [data-testid="list-menu-item"]', { timeout: 10000 });
     } catch(e) {}
 
-    // 2回目のログイン
     if (await emailInput.isVisible().catch(() => false)) {
       await emailInput.click();
       await emailInput.clear();
@@ -124,9 +121,6 @@ const axios = require('axios');
       await page.waitForTimeout(2000);
     }
 
-    // =========================================================
-    // [Step 1.3] チーム「フルアウト」を選択
-    // =========================================================
     console.log(`\n[Step 1.3] チーム「フルアウト」を選択します。`);
     try {
       const fulloutItem = page.locator('div, [data-testid="list-menu-item"]').filter({ hasText: /^フルアウト$/ }).first();
@@ -145,16 +139,14 @@ const axios = require('axios');
     }
 
     // =========================================================
-    // [Step 2] コピー元フォルダへ移動（検索パネルを開いて検索）
+    // [Step 2] コピー元フォルダへ移動
     // =========================================================
     console.log(`\n[Step 2] コピー元フォルダ「${sourceFolder}」へ移動します。`);
     await page.goto('https://app.squadbeyond.com/folders');
     await page.waitForLoadState('load');
     await page.waitForTimeout(2000);
 
-    // チーム未選択でリダイレクトされた場合のリカバリー
     if (!page.url().includes('/folders')) {
-      console.log(`  => ⚠️ /folders 遷移失敗。現在URL: ${page.url()} → チーム選択を再試行します。`);
       const fulloutRetry = page.locator('div').filter({ hasText: /^フルアウト$/ }).last();
       if (await fulloutRetry.isVisible({ timeout: 5000 }).catch(() => false)) {
         await fulloutRetry.click();
@@ -200,7 +192,7 @@ const axios = require('axios');
     await page.waitForTimeout(3000);
 
     // =========================================================
-    // [Step 3] 記事検索（フォルダ内検索）
+    // [Step 3] 記事検索
     // =========================================================
     console.log(`\n[Step 3] 新しいタブのフォルダ内で記事「${sourceArticle}」を検索します。`);
 
@@ -218,9 +210,10 @@ const axios = require('axios');
     // =========================================================
     console.log(`\n[Step 4] 対象記事のメニューを開きます。`);
 
-    // ★大修正: 意図せぬポップアップや残存するツールチップを消すため、右側の安全なエリアをクリック
-    console.log(`  - 意図せぬポップアップを解除するため、画面右側をクリックします。`);
-    await page.mouse.click(1200, 400); 
+    // ★大修正: ポップアップを確実に消すため、Escキーと画面の左上端(10,10)をクリック
+    console.log(`  - 意図せぬポップアップを解除するため、画面外をクリックしEscキーを押します。`);
+    await page.keyboard.press('Escape');
+    await page.mouse.click(10, 10);
     await page.waitForTimeout(500);
 
     const articleItem = page.getByText(sourceArticle).first();
@@ -229,8 +222,9 @@ const axios = require('axios');
     try {
         await articleItem.hover({ timeout: 5000 });
     } catch (e) {
-        console.log(`  => ⚠️ ホバーが妨害されました。再度背景をクリックしてリトライします。`);
-        await page.mouse.click(1200, 400);
+        console.log(`  => ⚠️ ホバーが妨害されました。再度リトライします。`);
+        await page.keyboard.press('Escape');
+        await page.mouse.click(10, 10);
         await page.waitForTimeout(500);
         await articleItem.hover();
     }
@@ -268,15 +262,17 @@ const axios = require('axios');
     await destFolderSearchInput.fill(destFolder);
     await page.waitForTimeout(2000);
 
-    // ★大修正: :visible でモーダル内のグループ要素を狙い、背景誤爆を防ぐ
+    // ★大修正: list-menu-item の条件を撤廃し、最も深くにあるテキスト要素を直接狙い撃ちする
     console.log(`  - グループ「${groupListDest}」をクリックして展開します。`);
-    await page.locator('[data-testid="list-menu-item"]:visible').filter({ hasText: groupListDest }).last().click();
+    const targetGroup = page.getByText(groupListDest).filter({ hasNot: page.locator('div') }).last();
+    await targetGroup.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
+    await targetGroup.click();
     await page.waitForTimeout(1000);
 
     console.log(`  - フォルダ「${destFolder}」をクリックします。`);
-    await page.locator('[data-testid="list-menu-item"]:visible')
-      .filter({ hasText: destFolder }).last()
-      .locator('xpath=div[2]').click();
+    const targetFolder = page.getByText(destFolder).filter({ hasNot: page.locator('div') }).last();
+    await targetFolder.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
+    await targetFolder.click();
     await page.waitForTimeout(1000);
 
     console.log(`  - 3. 「⚠️後から変更できません」をクリックしてURLタブを開きます。`);
@@ -315,7 +311,7 @@ const axios = require('axios');
     await page.getByText('この内容でページを複製する', { exact: true }).last().click();
 
     // =========================================================
-    // [Step 6] 複製完了待機 → destFolder検索 → URL取得
+    // [Step 6] 複製完了待機 → URL取得
     // =========================================================
     console.log(`  => ⏳ 複製処理の完了を待機しています... (10秒)`);
     await page.waitForTimeout(10000);
@@ -325,6 +321,18 @@ const axios = require('axios');
     await page.goto('https://app.squadbeyond.com/folders');
     await page.waitForLoadState('load');
     await page.waitForTimeout(2000);
+
+    if (!page.url().includes('/folders')) {
+      const fulloutRetry6 = page.locator('div').filter({ hasText: /^フルアウト$/ }).last();
+      if (await fulloutRetry6.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await fulloutRetry6.click();
+        await page.waitForTimeout(3000);
+        await page.waitForLoadState('load');
+      }
+      await page.goto('https://app.squadbeyond.com/folders');
+      await page.waitForLoadState('load');
+      await page.waitForTimeout(2000);
+    }
 
     console.log(`  - 複製先フォルダ「${destFolder}」を検索します。`);
     const searchTrigger2 = page.locator('input[placeholder*="検索"], [placeholder*="検索"]').first();
@@ -391,30 +399,6 @@ const axios = require('axios');
   } catch (error) {
     console.error(`\n❌ エラー発生:\n`, error);
     await page.screenshot({ path: 'duplicate-error-screenshot.png', fullPage: true });
-
-    console.log('\n========== DOM診断ログ ==========');
-    console.log('[現在URL]', page.url());
-    const diagTargets = [
-      { label: 'side-menu',        sel: '[data-testid="side-menu"]' },
-      { label: 'list-menu-item',   sel: '[data-testid="list-menu-item"]' },
-      { label: 'option-icon',      sel: '[data-testid="option-icon"]' },
-      { label: 'dialog',           sel: 'div[role="dialog"]' },
-      { label: 'mark(検索結果)',    sel: 'mark' },
-      { label: 'input(検索)',       sel: 'input[placeholder*="検索"]' },
-    ];
-    for (const t of diagTargets) {
-      try {
-        const count = await page.locator(t.sel).count();
-        if (count > 0) {
-          const html = await page.locator(t.sel).first().innerHTML();
-          console.log(`[${t.label}] count=${count} HTML(先頭500字):\n${html.slice(0, 500)}\n`);
-        } else {
-          console.log(`[${t.label}] 見つかりません`);
-        }
-      } catch(e) { console.log(`[${t.label}] 取得失敗: ${e.message}`); }
-    }
-    console.log('==================================\n');
-
     if (gasUrl) {
       await axios.post(gasUrl, { row_idx: rowIdx, entry_url: "", status: 'error', task_type: 'duplicate' });
     }

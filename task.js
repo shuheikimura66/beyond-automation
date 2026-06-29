@@ -194,7 +194,7 @@ const axios = require('axios');
     await groupInput.waitFor({ state: 'visible', timeout: 5000 });
     await groupInput.fill(groupListDest);
     await page.waitForTimeout(1000);
-    await page.getByText(groupListDest).last().click();
+    await page.locator('[data-testid="list-menu-item"]:visible').filter({ hasText: groupListDest }).last().click();
     await page.waitForTimeout(500);
 
     await page.getByText('設定確認', { exact: true }).click();
@@ -273,11 +273,11 @@ const axios = require('axios');
     await page.waitForTimeout(500);
     
     console.log(`  - 画面右側をクリックして名称変更を確定させます。`);
-    await page.mouse.click(1200, 400); // 画面右側の安全なエリアをクリック
+    await page.mouse.click(1200, 400);
     await page.waitForTimeout(3000);
 
     // =========================================================
-    // [Step 3] コピー元フォルダを検索パネルで直接検索してクリック
+    // [Step 3] コピー元フォルダを検索
     // =========================================================
     console.log(`\n[Step 3] 原本フォルダ「${sourceFolder}」を検索します。`);
 
@@ -329,9 +329,8 @@ const axios = require('axios');
     // =========================================================
     console.log(`\n[Step 5] 「別フォルダへ複製」を選択します。`);
 
-    // ★大修正: 意図せぬポップアップや残ったモーダルを消すために画面右側をクリック
     console.log(`  - 意図せぬポップアップを解除するため、画面右側をクリックします。`);
-    await page.mouse.click(1200, 400); // 画面幅1372の中の右端エリアをターゲット
+    await page.mouse.click(1200, 400);
     await page.waitForTimeout(500);
 
     const articleItem = page.getByText(sourceArticle).first();
@@ -376,10 +375,12 @@ const axios = require('axios');
     await destFolderSearchInput.fill(destFolder);
     await page.waitForTimeout(2000);
 
+    // ★大修正: グループ名クリックにも `:visible` フィルターを適用し、背景誤爆を防ぐ
     console.log(`  - グループ「${groupListDest}」をクリックして展開します。`);
-    await page.getByText(groupListDest).last().click();
+    await page.locator('[data-testid="list-menu-item"]:visible').filter({ hasText: groupListDest }).last().click();
     await page.waitForTimeout(1000);
 
+    console.log(`  - フォルダ「${destFolder}」をクリックします。`);
     await page.locator('[data-testid="list-menu-item"]:visible')
       .filter({ hasText: destFolder }).last()
       .locator('xpath=div[2]').click();

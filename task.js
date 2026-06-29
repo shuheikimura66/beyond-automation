@@ -5,7 +5,6 @@ const axios = require('axios');
   const browser = await chromium.launch();
   const context = await browser.newContext({
     viewport: { width: 1372, height: 841 },
-    // 少しでもBot感を減らすためのユーザーエージェント設定
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
   });
   let page = await context.newPage();
@@ -35,7 +34,7 @@ const axios = require('axios');
     console.log(`=========================================`);
 
     // =========================================================
-    // [Step 1] ログイン処理（人間らしい入力でBot検知回避）
+    // [Step 1] ログイン処理
     // =========================================================
     console.log(`\n[Step 1] ターゲットURLにアクセスします: ${targetUrl}`);
     await page.goto(targetUrl);
@@ -207,7 +206,7 @@ const axios = require('axios');
     await page.waitForTimeout(5000);
 
     // =========================================================
-    // [Step 2.5] フォルダ名称変更（インライン編集対応 / オートフォーカス利用）
+    // [Step 2.5] フォルダ名称変更
     // =========================================================
     console.log(`\n[Step 2.5] 作成したフォルダを「${destFolder}」に名称変更します。`);
     await page.locator('div[role="dialog"]').waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {});
@@ -249,7 +248,8 @@ const axios = require('axios');
     await page.waitForTimeout(3000);
 
     console.log(`  - 新タブのサイドバーで「新しいフォルダ」をホバーし、名称変更メニューを開きます。`);
-    const targetNewFolder = page.locator('[data-testid="list-menu-item"]').filter({ hasText: '新しいフォルダ' }).first();
+    // ★大修正: 2000個以上の隠れ要素を無視するため `:visible` を追加。かつ完全一致指定に。
+    const targetNewFolder = page.locator('[data-testid="list-menu-item"]:visible').filter({ hasText: /^新しいフォルダ$/ }).first();
     await targetNewFolder.waitFor({ state: 'visible', timeout: 10000 });
     await targetNewFolder.hover();
     await page.waitForTimeout(500);
@@ -264,23 +264,21 @@ const axios = require('axios');
 
     console.log(`  - 「名称変更」をクリックします。`);
     await page.getByText('名称変更', { exact: true }).last().click();
-    await page.waitForTimeout(1000); // クリック後、入力窓への切り替えとオートフォーカスを待つ
+    await page.waitForTimeout(1000);
 
-    // ★大修正: ユーザーの指示通り、オートフォーカスを信じて直接キーボード操作のみを行う
     console.log(`  - オートフォーカスを利用して直接フォルダ名を入力します。`);
     await page.keyboard.press('Control+A');
-    await page.keyboard.press('Meta+A'); // Mac環境用フォールバック
+    await page.keyboard.press('Meta+A'); 
     await page.keyboard.press('Backspace');
     await page.keyboard.type(destFolder, { delay: 50 });
     await page.waitForTimeout(500);
     
     console.log(`  - 画面右側をクリックして名称変更を確定させます。`);
-    // x=1000, y=400 は、解像度1372x841の中で確実に「右側の何もないコンテンツエリア」に当たります
     await page.mouse.click(1000, 400);
     await page.waitForTimeout(3000);
 
     // =========================================================
-    // [Step 3] コピー元フォルダを検索パネルで直接検索してクリック
+    // [Step 3] コピー元フォルダを検索
     // =========================================================
     console.log(`\n[Step 3] 原本フォルダ「${sourceFolder}」を検索します。`);
 
@@ -368,7 +366,8 @@ const axios = require('axios');
     await page.getByText(groupListDest, { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
-    await page.locator('[data-testid="list-menu-item"]')
+    // ★念のためここにも :visible を追加して堅牢化
+    await page.locator('[data-testid="list-menu-item"]:visible')
       .filter({ hasText: destFolder }).last()
       .locator('xpath=div[2]').click();
     await page.waitForTimeout(1000);

@@ -182,7 +182,11 @@ const axios = require('axios');
     console.log(`  - ドメイン「${domain}」を入力します。`);
     await page.locator('input').last().fill(domain);
     await page.waitForTimeout(1000);
-    await page.getByText(domain).last().click();
+    
+    // ドメインのドロップダウン選択
+    const targetDomain = page.getByText(domain).filter({ hasNot: page.locator('div') }).last();
+    await targetDomain.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
+    await targetDomain.click();
     await page.waitForTimeout(1000);
 
     console.log(`  - グループ選択を開きます。`);
@@ -194,7 +198,11 @@ const axios = require('axios');
     await groupInput.waitFor({ state: 'visible', timeout: 5000 });
     await groupInput.fill(groupListDest);
     await page.waitForTimeout(1000);
-    await page.locator('[data-testid="list-menu-item"]:visible').filter({ hasText: groupListDest }).last().click();
+    
+    // ★大修正: リストアイテム属性を撤廃し、ポップオーバー内の最深テキスト要素を確実にとらえる
+    const targetCreateGroup = page.getByText(groupListDest).filter({ hasNot: page.locator('div') }).last();
+    await targetCreateGroup.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
+    await targetCreateGroup.click();
     await page.waitForTimeout(500);
 
     await page.getByText('設定確認', { exact: true }).click();
@@ -206,7 +214,7 @@ const axios = require('axios');
     await page.waitForTimeout(5000);
 
     // =========================================================
-    // [Step 2.5] フォルダ名称変更
+    // [Step 2.5] フォルダ名称変更（インライン編集対応）
     // =========================================================
     console.log(`\n[Step 2.5] 作成したフォルダを「${destFolder}」に名称変更します。`);
     await page.locator('div[role="dialog"]').waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {});
@@ -273,11 +281,11 @@ const axios = require('axios');
     await page.waitForTimeout(500);
     
     console.log(`  - 画面右側をクリックして名称変更を確定させます。`);
-    await page.mouse.click(1200, 400);
+    await page.mouse.click(1000, 400);
     await page.waitForTimeout(3000);
 
     // =========================================================
-    // [Step 3] コピー元フォルダを検索
+    // [Step 3] コピー元フォルダを検索パネルで直接検索してクリック
     // =========================================================
     console.log(`\n[Step 3] 原本フォルダ「${sourceFolder}」を検索します。`);
 
@@ -329,8 +337,9 @@ const axios = require('axios');
     // =========================================================
     console.log(`\n[Step 5] 「別フォルダへ複製」を選択します。`);
 
-    console.log(`  - 意図せぬポップアップを解除するため、画面右側をクリックします。`);
-    await page.mouse.click(1200, 400);
+    console.log(`  - 意図せぬポップアップを解除するため、画面の安全な領域をクリックしEscキーを押します。`);
+    await page.keyboard.press('Escape');
+    await page.mouse.click(10, 10);
     await page.waitForTimeout(500);
 
     const articleItem = page.getByText(sourceArticle).first();
@@ -339,8 +348,9 @@ const axios = require('axios');
     try {
         await articleItem.hover({ timeout: 5000 });
     } catch (e) {
-        console.log(`  => ⚠️ ホバーが妨害されました。再度背景をクリックしてリトライします。`);
-        await page.mouse.click(1200, 400);
+        console.log(`  => ⚠️ ホバーが妨害されました。再度リトライします。`);
+        await page.keyboard.press('Escape');
+        await page.mouse.click(10, 10);
         await page.waitForTimeout(500);
         await articleItem.hover();
     }
@@ -355,103 +365,3 @@ const axios = require('axios');
     // =========================================================
     // [Step 6] 複製設定
     // =========================================================
-    console.log(`\n[Step 6] 複製ウィザードを進めます（新UI対応）。`);
-
-    const activeModal = page.locator('div[role="dialog"]').last();
-
-    console.log(`  - 複製先チームを「現在のチーム内」に設定します。`);
-    await activeModal.locator('section:nth-of-type(1) div.css-18ji2p4 > div').click();
-    await page.waitForTimeout(500);
-    await page.getByText('現在のチーム内', { exact: true }).last().click();
-    await page.waitForTimeout(1000);
-
-    console.log(`  - 複製先フォルダを選択します。`);
-    await activeModal.locator('section:nth-of-type(2) div.css-18ji2p4 > div').click();
-    await page.waitForTimeout(1000);
-
-    console.log(`  - 検索窓にフォルダ名を入力します。`);
-    const destFolderSearchInput = page.locator('input').last();
-    await destFolderSearchInput.waitFor({ state: 'visible', timeout: 5000 });
-    await destFolderSearchInput.fill(destFolder);
-    await page.waitForTimeout(2000);
-
-    // ★大修正: グループ名クリックにも `:visible` フィルターを適用し、背景誤爆を防ぐ
-    console.log(`  - グループ「${groupListDest}」をクリックして展開します。`);
-    await page.locator('[data-testid="list-menu-item"]:visible').filter({ hasText: groupListDest }).last().click();
-    await page.waitForTimeout(1000);
-
-    console.log(`  - フォルダ「${destFolder}」をクリックします。`);
-    await page.locator('[data-testid="list-menu-item"]:visible')
-      .filter({ hasText: destFolder }).last()
-      .locator('xpath=div[2]').click();
-    await page.waitForTimeout(1000);
-
-    if (deliveryUrl) {
-      console.log(`  - 配信URLを入力します: ${deliveryUrl}`);
-      const urlInput = activeModal.locator('section:nth-of-type(3) input').first();
-      await urlInput.waitFor({ state: 'visible', timeout: 5000 });
-      await urlInput.click();
-      await urlInput.fill(deliveryUrl);
-      await page.keyboard.press('Tab'); 
-      await page.waitForTimeout(500);
-    }
-
-    const pageNameAccordion = page.getByText('いつでも変更可能です').last();
-    if (await pageNameAccordion.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await pageNameAccordion.click();
-      await page.waitForTimeout(800);
-    }
-
-    await page.getByText('設定確認', { exact: true }).last().click();
-    await page.waitForTimeout(2000);
-
-    console.log(`  - 「この内容でページを複製する」をクリックします。`);
-    await page.getByText('この内容でページを複製する', { exact: true }).last().click();
-
-    console.log(`  => ⏳ 複製処理の完了を待機しています... (10秒)`);
-    await page.waitForTimeout(10000);
-
-    await page.screenshot({ path: 'final-check.png', fullPage: true });
-
-    if (gasUrl) {
-      await axios.post(gasUrl, { row_idx: rowIdx, entry_url: "", status: 'success' });
-    }
-    console.log(`\n🎉 RPA処理が完了しました！`);
-
-  } catch (error) {
-    console.error(`\n❌ エラー発生:\n`, error);
-    await page.screenshot({ path: 'error-screenshot.png', fullPage: true });
-
-    console.log('\n========== DOM診断ログ ==========');
-    console.log('[現在URL]', page.url());
-    const diagTargets = [
-      { label: 'side-menu',             sel: '[data-testid="side-menu"]' },
-      { label: 'list-menu-item',        sel: '[data-testid="list-menu-item"]' },
-      { label: 'generate-folder-icon',  sel: '[data-testid="generate-folder-icon"]' },
-      { label: 'option-icon',           sel: '[data-testid="option-icon"]' },
-      { label: 'dialog',                sel: 'div[role="dialog"]' },
-      { label: 'combobox',              sel: '[role="combobox"]' },
-      { label: 'mark(検索結果)',         sel: 'mark' },
-      { label: 'input(検索)',            sel: 'input[placeholder*="検索"]' },
-    ];
-    for (const t of diagTargets) {
-      try {
-        const count = await page.locator(t.sel).count();
-        if (count > 0) {
-          const html = await page.locator(t.sel).first().innerHTML();
-          console.log(`[${t.label}] count=${count} HTML(先頭500字):\n${html.slice(0, 500)}\n`);
-        } else {
-          console.log(`[${t.label}] 見つかりません`);
-        }
-      } catch(e) { console.log(`[${t.label}] 取得失敗: ${e.message}`); }
-    }
-    console.log('==================================\n');
-
-    if (gasUrl) {
-      await axios.post(gasUrl, { row_idx: rowIdx, entry_url: "", status: 'error' });
-    }
-    process.exit(1);
-  } finally {
-    await browser.close();
-  }
-})();

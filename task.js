@@ -182,7 +182,7 @@ const axios = require('axios');
     console.log(`  - ドメイン「${domain}」を入力します。`);
     await page.locator('input').last().fill(domain);
     await page.waitForTimeout(1000);
-    await page.getByText(domain, { exact: true }).last().click();
+    await page.getByText(domain).last().click();
     await page.waitForTimeout(1000);
 
     console.log(`  - グループ選択を開きます。`);
@@ -194,7 +194,9 @@ const axios = require('axios');
     await groupInput.waitFor({ state: 'visible', timeout: 5000 });
     await groupInput.fill(groupListDest);
     await page.waitForTimeout(1000);
-    await page.getByText(groupListDest, { exact: true }).last().click();
+    
+    // ★ 背景の同名要素を誤爆しないよう `[data-testid="list-menu-item"]:visible` でドロップダウン内の項目を狙う
+    await page.locator('[data-testid="list-menu-item"]:visible').filter({ hasText: groupListDest }).last().click();
     await page.waitForTimeout(500);
 
     await page.getByText('設定確認', { exact: true }).click();
@@ -248,7 +250,6 @@ const axios = require('axios');
     await page.waitForTimeout(3000);
 
     console.log(`  - 新タブのサイドバーで「新しいフォルダ」をホバーし、名称変更メニューを開きます。`);
-    // ★大修正: 2000個以上の隠れ要素を無視するため `:visible` を追加。かつ完全一致指定に。
     const targetNewFolder = page.locator('[data-testid="list-menu-item"]:visible').filter({ hasText: /^新しいフォルダ$/ }).first();
     await targetNewFolder.waitFor({ state: 'visible', timeout: 10000 });
     await targetNewFolder.hover();
@@ -330,7 +331,7 @@ const axios = require('axios');
     // =========================================================
     console.log(`\n[Step 5] 「別フォルダへ複製」を選択します。`);
 
-    const articleItem = page.getByText(sourceArticle, { exact: true }).first();
+    const articleItem = page.getByText(sourceArticle).first();
     await articleItem.waitFor({ state: 'visible', timeout: 10000 });
     await articleItem.hover();
     await page.waitForTimeout(500);
@@ -353,7 +354,7 @@ const axios = require('axios');
     await page.getByText('現在のチーム内', { exact: true }).last().click();
     await page.waitForTimeout(1000);
 
-    console.log(`  - 複製先フォルダ「${destFolder}」を選択します。`);
+    console.log(`  - 複製先フォルダを選択します。`);
     await activeModal.locator('section:nth-of-type(2) div.css-18ji2p4 > div').click();
     await page.waitForTimeout(1000);
 
@@ -363,13 +364,16 @@ const axios = require('axios');
     await destFolderSearchInput.fill(destFolder);
     await page.waitForTimeout(2000);
 
-    await page.getByText(groupListDest, { exact: true }).last().click();
+    // ★大修正: グループをクリックしてドリルダウン（展開）する
+    console.log(`  - グループ「${groupListDest}」をクリックして展開します。`);
+    const targetGroup = page.locator('[data-testid="list-menu-item"]:visible').filter({ hasText: groupListDest }).last();
+    await targetGroup.click();
     await page.waitForTimeout(1000);
 
-    // ★念のためここにも :visible を追加して堅牢化
-    await page.locator('[data-testid="list-menu-item"]:visible')
-      .filter({ hasText: destFolder }).last()
-      .locator('xpath=div[2]').click();
+    // ★大修正: 展開されたフォルダをクリックする
+    console.log(`  - フォルダ「${destFolder}」をクリックします。`);
+    const targetFolder = page.locator('[data-testid="list-menu-item"]:visible').filter({ hasText: destFolder }).last().locator('xpath=div[2]');
+    await targetFolder.click();
     await page.waitForTimeout(1000);
 
     if (deliveryUrl) {

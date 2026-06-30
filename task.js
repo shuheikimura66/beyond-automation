@@ -122,9 +122,6 @@ const axios = require('axios');
       await page.waitForTimeout(2000);
     }
 
-    // =========================================================
-    // [Step 1.3] チーム「フルアウト」を選択
-    // =========================================================
     console.log(`\n[Step 1.3] チーム「フルアウト」を選択します。`);
     try {
       const fulloutItem = page.locator('div, [data-testid="list-menu-item"]').filter({ hasText: /^フルアウト$/ }).first();
@@ -161,6 +158,9 @@ const axios = require('axios');
     // =========================================================
     // [Step 2] フォルダ作成
     // =========================================================
+    // ★大改修：背景（#root）の要素を完全に除外し、ポップアップ内の要素だけを狙撃するための定数
+    const activePortals = page.locator('body > div:not(#root)');
+
     console.log(`\n[Step 2] コピー先のフォルダを新規作成します（新UIフロー）。`);
     console.log(`  - フォルダ作成アイコンをクリックします。`);
     await page.locator('[data-testid="generate-folder-icon"]').click();
@@ -182,7 +182,11 @@ const axios = require('axios');
     console.log(`  - ドメイン「${domain}」を入力します。`);
     await page.locator('input').last().fill(domain);
     await page.waitForTimeout(1000);
-    await page.getByText(domain).filter({ hasNot: page.locator('div') }).last().click();
+    
+    // 背景のサイドバー誤爆を防ぐため、activePortals を使用
+    const targetDomain = activePortals.getByText(domain).filter({ hasNot: page.locator('div') }).last();
+    await targetDomain.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
+    await targetDomain.click();
     await page.waitForTimeout(1000);
 
     console.log(`  - グループ選択を開きます。`);
@@ -192,9 +196,14 @@ const axios = require('axios');
     console.log(`  - グループ「${groupListDest}」を入力して選択します。`);
     const groupInput = page.locator('input').last();
     await groupInput.waitFor({ state: 'visible', timeout: 5000 });
+    await groupInput.click();
     await groupInput.fill(groupListDest);
     await page.waitForTimeout(1000);
-    await page.getByText(groupListDest).filter({ hasNot: page.locator('div') }).last().click();
+    
+    // 背景のサイドバー誤爆を防ぐため、activePortals を使用
+    const targetCreateGroup = activePortals.getByText(groupListDest).filter({ hasNot: page.locator('div') }).last();
+    await targetCreateGroup.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
+    await targetCreateGroup.click();
     await page.waitForTimeout(500);
 
     await page.getByText('設定確認', { exact: true }).click();
@@ -277,7 +286,7 @@ const axios = require('axios');
     await page.waitForTimeout(3000);
 
     // =========================================================
-    // [Step 3] コピー元フォルダを検索
+    // [Step 3] コピー元フォルダを検索パネルで直接検索してクリック
     // =========================================================
     console.log(`\n[Step 3] 原本フォルダ「${sourceFolder}」を検索します。`);
 
@@ -374,17 +383,23 @@ const axios = require('axios');
     console.log(`  - 検索窓にフォルダ名を入力します。`);
     const destFolderSearchInput = page.locator('input').last();
     await destFolderSearchInput.waitFor({ state: 'visible', timeout: 5000 });
+    await destFolderSearchInput.click();
     await destFolderSearchInput.fill(destFolder);
     await page.waitForTimeout(2000);
 
+    // ★大修正: 再利用可能な `#root` 除外セレクターを定義
+    const portalsStep6 = page.locator('body > div:not(#root)');
+
     console.log(`  - グループ「${groupListDest}」をクリックして展開します。`);
-    const targetGroup = page.getByText(groupListDest).filter({ hasNot: page.locator('div') }).last();
+    // 背景のサイドバー要素を完全に除外して、手前のポップアップ内のグループを正確にクリック
+    const targetGroup = portalsStep6.getByText(groupListDest).filter({ hasNot: page.locator('div') }).last();
     await targetGroup.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
     await targetGroup.click();
     await page.waitForTimeout(1000);
 
     console.log(`  - フォルダ「${destFolder}」をクリックします。`);
-    const targetFolder = page.getByText(destFolder).filter({ hasNot: page.locator('div') }).last();
+    // 手前のポップアップ内のフォルダを正確にクリック
+    const targetFolder = portalsStep6.getByText(destFolder).filter({ hasNot: page.locator('div') }).last();
     await targetFolder.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
     await targetFolder.click();
     await page.waitForTimeout(1000);

@@ -6,15 +6,23 @@ const axios = require('axios');
   const context = await browser.newContext({
     viewport: { width: 1372, height: 841 },
     permissions: ['clipboard-read', 'clipboard-write'],
+    // 完璧なユーザーエージェント
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
   });
   let page = await context.newPage();
 
-  // ブラウザの自動操縦フラグを偽装（Bot検知対策）
+  // =========================================================
+  // ★究極のBot偽装スクリプト（Stealth Evasion）
+  // =========================================================
   await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'webdriver', {
-      get: () => false,
-    });
+    // 1. webdriverフラグの消去
+    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+    // 2. 言語設定の偽装（サーバー環境の英語を隠蔽）
+    Object.defineProperty(navigator, 'languages', { get: () => ['ja-JP', 'ja', 'en-US', 'en'] });
+    // 3. プラグインの偽装（Headlessにはないプラグイン情報を捏造）
+    Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+    // 4. Chrome固有のオブジェクトを捏造
+    window.chrome = { runtime: {} };
   });
 
   // =========================================================
@@ -54,8 +62,10 @@ const axios = require('axios');
 
     // 1回目のログイン
     if (await emailInput.isVisible().catch(() => false)) {
-      console.log(`  => 🔑 ログイン画面を検知。文字抜けチェック付きのタイピングを実行します。`);
-      
+      console.log(`  => 🔑 ログイン画面を検知。セキュリティシステムのロードを待ちます...`);
+      // ★大改修：裏側のセキュリティスクリプト（reCAPTCHA等）が判定を終えるのを確実に待つ
+      await page.waitForTimeout(3000);
+
       const targetId = process.env.SQUADBEYOND_ID;
       for (let i = 0; i < 3; i++) {
         await emailInput.click({ delay: 50 });
@@ -76,8 +86,9 @@ const axios = require('axios');
         if (await passInput.inputValue() === targetPass) break;
       }
 
-      // ★大改修：Bot対策のクリックブロックを回避するため、ボタンを押さずにEnterキーで送信する
       console.log(`  => ⏳ Enterキーを押してログインを実行します...`);
+      // 少し間を開けてから送信
+      await page.waitForTimeout(1000);
       await passInput.press('Enter');
 
       try {
@@ -125,6 +136,9 @@ const axios = require('axios');
 
     // 2回目のログイン
     if (await emailInput.isVisible().catch(() => false)) {
+      console.log(`  => 🔑 ログイン画面を検知。セキュリティシステムのロードを待ちます...`);
+      await page.waitForTimeout(3000);
+
       const targetId = process.env.SQUADBEYOND_ID;
       for (let i = 0; i < 3; i++) {
         await emailInput.click({ delay: 50 });
@@ -146,6 +160,7 @@ const axios = require('axios');
       }
 
       console.log(`  => ⏳ Enterキーを押してログインを実行します...`);
+      await page.waitForTimeout(1000);
       await passInput.press('Enter');
 
       try {
@@ -161,7 +176,7 @@ const axios = require('axios');
       await page.waitForTimeout(2000);
     }
 
-    // ★追加防波堤：ここでまだログイン画面にいるなら、強行せずにエラーで止める
+    // 防波堤：ここでまだログイン画面にいるなら、強行せずにエラーで止める
     if (await emailInput.isVisible().catch(() => false)) {
       throw new Error("ログインに失敗しました。認証情報、またはBot検知によるブロックを確認してください。");
     }
@@ -275,7 +290,7 @@ const axios = require('axios');
     await page.waitForTimeout(500);
 
     await page.locator('[data-testid="option-icon"]').first().click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1000);
 
     console.log(`  => 「別フォルダへ複製」を選択します。`);
     const duplicateMenuItem = page.getByText('別フォルダへ複製', { exact: true }).last();

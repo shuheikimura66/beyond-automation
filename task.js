@@ -1,11 +1,16 @@
-const { chromium } = require('playwright');
+// ★大改修：Playwright単体ではなく、Stealthプラグインを組み込んだ拡張版を呼び出します
+const { chromium } = require('playwright-extra');
+const stealth = require('puppeteer-extra-plugin-stealth')();
+chromium.use(stealth);
+
 const axios = require('axios');
 
 (async () => {
   const browser = await chromium.launch();
   const context = await browser.newContext({
     viewport: { width: 1372, height: 841 },
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    // ユーザーエージェントを少し新しめのChromeに偽装
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
   });
   let page = await context.newPage();
 
@@ -34,7 +39,7 @@ const axios = require('axios');
     console.log(`=========================================`);
 
     // =========================================================
-    // [Step 1] ログイン処理
+    // [Step 1] ログイン処理（Stealthプラグインによる確実な突破）
     // =========================================================
     console.log(`\n[Step 1] ターゲットURLにアクセスします: ${targetUrl}`);
     await page.goto(targetUrl);
@@ -47,16 +52,10 @@ const axios = require('axios');
     const passInput = page.locator('input[name="password"], input[type="password"]').first();
 
     if (await emailInput.isVisible().catch(() => false)) {
-      console.log(`  => 🔑 ログイン画面を検知。人間らしい速度で入力します。`);
-      await emailInput.click();
-      await emailInput.clear();
-      await emailInput.pressSequentially(process.env.SQUADBEYOND_ID, { delay: 50 });
-      await page.waitForTimeout(500);
-
-      await passInput.click();
-      await passInput.clear();
-      await passInput.pressSequentially(process.env.SQUADBEYOND_PASS, { delay: 50 });
-      await page.waitForTimeout(1000);
+      console.log(`  => 🔑 ログイン画面を検知。Stealthプラグインを用いてシンプルにログインを実行します。`);
+      
+      await emailInput.fill(process.env.SQUADBEYOND_ID);
+      await passInput.fill(process.env.SQUADBEYOND_PASS);
 
       console.log(`  => ⏳ ログインボタンをクリックして遷移を待機します...`);
       await page.getByRole('button', { name: 'ログイン' }).first().click();
@@ -64,7 +63,8 @@ const axios = require('axios');
       try {
         await Promise.race([
             page.waitForURL('**/users/teams', { timeout: 20000 }),
-            page.waitForSelector('[data-testid="list-menu-item"]', { timeout: 20000 })
+            page.waitForSelector('[data-testid="list-menu-item"]', { timeout: 20000 }),
+            page.waitForURL('**/folders*', { timeout: 20000 })
         ]);
         console.log(`  => ✅ ログイン通信完了 (URL: ${page.url()})`);
       } catch (e) {
@@ -98,15 +98,10 @@ const axios = require('axios');
     } catch(e) {}
 
     if (await emailInput.isVisible().catch(() => false)) {
-      await emailInput.click();
-      await emailInput.clear();
-      await emailInput.pressSequentially(process.env.SQUADBEYOND_ID, { delay: 50 });
-      await page.waitForTimeout(500);
-
-      await passInput.click();
-      await passInput.clear();
-      await passInput.pressSequentially(process.env.SQUADBEYOND_PASS, { delay: 50 });
-      await page.waitForTimeout(1000);
+      console.log(`  => 🔑 ログイン画面を検知。Stealthプラグインを用いてシンプルにログインを実行します。`);
+      
+      await emailInput.fill(process.env.SQUADBEYOND_ID);
+      await passInput.fill(process.env.SQUADBEYOND_PASS);
 
       console.log(`  => ⏳ ログインボタンをクリックして遷移を待機します...`);
       await page.getByRole('button', { name: 'ログイン' }).first().click();
@@ -114,12 +109,19 @@ const axios = require('axios');
       try {
         await Promise.race([
             page.waitForURL('**/users/teams', { timeout: 20000 }),
-            page.waitForSelector('[data-testid="list-menu-item"]', { timeout: 20000 })
+            page.waitForSelector('[data-testid="list-menu-item"]', { timeout: 20000 }),
+            page.waitForURL('**/folders*', { timeout: 20000 })
         ]);
+        console.log(`  => ✅ ログイン通信完了 (URL: ${page.url()})`);
       } catch (e) {
         console.log(`  => ⚠️ 再ログイン遷移タイムアウト`);
       }
       await page.waitForTimeout(2000);
+    }
+
+    // 防波堤：ここでまだログイン画面にいるならエラーで止める
+    if (await emailInput.isVisible().catch(() => false)) {
+      throw new Error("ログインに失敗しました。認証情報、またはBot検知によるブロックを確認してください。");
     }
 
     console.log(`\n[Step 1.3] チーム「フルアウト」を選択します。`);
@@ -158,7 +160,6 @@ const axios = require('axios');
     // =========================================================
     // [Step 2] フォルダ作成
     // =========================================================
-    // ★大改修：背景（#root）の要素を完全に除外し、ポップアップ内の要素だけを狙撃するための定数
     const activePortals = page.locator('body > div:not(#root)');
 
     console.log(`\n[Step 2] コピー先のフォルダを新規作成します（新UIフロー）。`);
@@ -183,28 +184,30 @@ const axios = require('axios');
     await page.locator('input').last().fill(domain);
     await page.waitForTimeout(1000);
     
-    // 背景のサイドバー誤爆を防ぐため、activePortals を使用
     const targetDomain = activePortals.getByText(domain).filter({ hasNot: page.locator('div') }).last();
     await targetDomain.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
     await targetDomain.click();
     await page.waitForTimeout(1000);
 
-    console.log(`  - グループ選択を開きます。`);
-    await page.locator('div.css-1vn620w').click();
-    await page.waitForTimeout(1000);
+    if (groupListDest && groupListDest.trim() !== "") {
+        console.log(`  - グループ選択を開きます。`);
+        await page.locator('div.css-1vn620w').click();
+        await page.waitForTimeout(1000);
 
-    console.log(`  - グループ「${groupListDest}」を入力して選択します。`);
-    const groupInput = page.locator('input').last();
-    await groupInput.waitFor({ state: 'visible', timeout: 5000 });
-    await groupInput.click();
-    await groupInput.fill(groupListDest);
-    await page.waitForTimeout(1000);
-    
-    // 背景のサイドバー誤爆を防ぐため、activePortals を使用
-    const targetCreateGroup = activePortals.getByText(groupListDest).filter({ hasNot: page.locator('div') }).last();
-    await targetCreateGroup.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
-    await targetCreateGroup.click();
-    await page.waitForTimeout(500);
+        console.log(`  - グループ「${groupListDest}」を入力して選択します。`);
+        const groupInput = page.locator('input').last();
+        await groupInput.waitFor({ state: 'visible', timeout: 5000 });
+        await groupInput.click();
+        await groupInput.fill(groupListDest);
+        await page.waitForTimeout(1000);
+        
+        const targetCreateGroup = activePortals.getByText(groupListDest).filter({ hasNot: page.locator('div') }).last();
+        await targetCreateGroup.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
+        await targetCreateGroup.click();
+        await page.waitForTimeout(500);
+    } else {
+        console.log(`  - ⚠️ グループ指定なしのため、グループ選択をスキップします。`);
+    }
 
     await page.getByText('設定確認', { exact: true }).click();
     await page.waitForTimeout(1000);
@@ -387,18 +390,19 @@ const axios = require('axios');
     await destFolderSearchInput.fill(destFolder);
     await page.waitForTimeout(2000);
 
-    // ★大修正: 再利用可能な `#root` 除外セレクターを定義
     const portalsStep6 = page.locator('body > div:not(#root)');
 
-    console.log(`  - グループ「${groupListDest}」をクリックして展開します。`);
-    // 背景のサイドバー要素を完全に除外して、手前のポップアップ内のグループを正確にクリック
-    const targetGroup = portalsStep6.getByText(groupListDest).filter({ hasNot: page.locator('div') }).last();
-    await targetGroup.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
-    await targetGroup.click();
-    await page.waitForTimeout(1000);
+    if (groupListDest && groupListDest.trim() !== "") {
+        console.log(`  - グループ「${groupListDest}」をクリックして展開します。`);
+        const targetGroup = portalsStep6.getByText(groupListDest).filter({ hasNot: page.locator('div') }).last();
+        await targetGroup.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
+        await targetGroup.click();
+        await page.waitForTimeout(1000);
+    } else {
+        console.log(`  - ⚠️ グループ指定なしのため、グループ展開をスキップします。`);
+    }
 
     console.log(`  - フォルダ「${destFolder}」をクリックします。`);
-    // 手前のポップアップ内のフォルダを正確にクリック
     const targetFolder = portalsStep6.getByText(destFolder).filter({ hasNot: page.locator('div') }).last();
     await targetFolder.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
     await targetFolder.click();

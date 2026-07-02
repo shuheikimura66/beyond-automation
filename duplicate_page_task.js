@@ -10,6 +10,14 @@ const axios = require('axios');
   });
   let page = await context.newPage();
 
+  // ★大改修：Bot検知を回避する強力なおまじない
+  // ブラウザの「私は自動化ツールです」という自己申告フラグを強制的に false に偽装します
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', {
+      get: () => false,
+    });
+  });
+
   // =========================================================
   // 1. 変数の設定
   // =========================================================
@@ -45,14 +53,15 @@ const axios = require('axios');
     const emailInput = page.locator('input[name="email"], input[type="email"]').first();
     const passInput = page.locator('input[name="password"], input[type="password"]').first();
 
+    // 1回目のログイン
     if (await emailInput.isVisible().catch(() => false)) {
       console.log(`  => 🔑 ログイン画面を検知。文字抜けチェック付きのタイピングを実行します。`);
       
-      // ★大改修: 文字抜けを検知してリトライする堅牢な入力ロジック
       const targetId = process.env.SQUADBEYOND_ID;
       for (let i = 0; i < 3; i++) {
         await emailInput.click({ delay: 50 });
         await emailInput.clear();
+        await page.waitForTimeout(200);
         await emailInput.pressSequentially(targetId, { delay: 50 });
         await page.waitForTimeout(300);
         if (await emailInput.inputValue() === targetId) break;
@@ -63,23 +72,29 @@ const axios = require('axios');
       for (let i = 0; i < 3; i++) {
         await passInput.click({ delay: 50 });
         await passInput.clear();
+        await page.waitForTimeout(200);
         await passInput.pressSequentially(targetPass, { delay: 50 });
         await page.waitForTimeout(300);
         if (await passInput.inputValue() === targetPass) break;
         console.log(`    ⚠️ パスワードの文字抜けを検知。再入力します (${i+1}/3)`);
       }
 
+      // ★大改修：入力直後のBot判定を避けるため、フォーカスを外して2秒の「間（ま）」を作る
+      console.log(`  => ⏳ 人間らしい一呼吸を置きます (2秒待機)...`);
+      await page.mouse.click(10, 10);
+      await page.waitForTimeout(2000);
+
       console.log(`  => ⏳ ログインボタンをクリックして遷移を待機します...`);
       const loginBtn = page.getByRole('button', { name: 'ログイン' }).first();
       await loginBtn.hover();
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(500);
       await loginBtn.click({ delay: 100 });
 
       try {
-        // 安定していたPromise.raceによる遷移待機に復元
         await Promise.race([
             page.waitForURL('**/users/teams', { timeout: 20000 }),
-            page.waitForSelector('[data-testid="list-menu-item"]', { timeout: 20000 })
+            page.waitForSelector('[data-testid="list-menu-item"]', { timeout: 20000 }),
+            page.waitForURL('**/folders*', { timeout: 20000 })
         ]);
         console.log(`  => ✅ ログイン通信完了 (URL: ${page.url()})`);
       } catch (e) {
@@ -112,12 +127,13 @@ const axios = require('axios');
         await page.waitForSelector('input[name="email"], input[type="email"], [data-testid="list-menu-item"]', { timeout: 10000 });
     } catch(e) {}
 
-    // 2回目のログインも同様にリトライロジックを適用
+    // 2回目のログイン
     if (await emailInput.isVisible().catch(() => false)) {
       const targetId = process.env.SQUADBEYOND_ID;
       for (let i = 0; i < 3; i++) {
         await emailInput.click({ delay: 50 });
         await emailInput.clear();
+        await page.waitForTimeout(200);
         await emailInput.pressSequentially(targetId, { delay: 50 });
         await page.waitForTimeout(300);
         if (await emailInput.inputValue() === targetId) break;
@@ -127,21 +143,27 @@ const axios = require('axios');
       for (let i = 0; i < 3; i++) {
         await passInput.click({ delay: 50 });
         await passInput.clear();
+        await page.waitForTimeout(200);
         await passInput.pressSequentially(targetPass, { delay: 50 });
         await page.waitForTimeout(300);
         if (await passInput.inputValue() === targetPass) break;
       }
 
+      console.log(`  => ⏳ 人間らしい一呼吸を置きます (2秒待機)...`);
+      await page.mouse.click(10, 10);
+      await page.waitForTimeout(2000);
+
       console.log(`  => ⏳ ログインボタンをクリックして遷移を待機します...`);
       const loginBtn = page.getByRole('button', { name: 'ログイン' }).first();
       await loginBtn.hover();
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(500);
       await loginBtn.click({ delay: 100 });
 
       try {
         await Promise.race([
             page.waitForURL('**/users/teams', { timeout: 20000 }),
-            page.waitForSelector('[data-testid="list-menu-item"]', { timeout: 20000 })
+            page.waitForSelector('[data-testid="list-menu-item"]', { timeout: 20000 }),
+            page.waitForURL('**/folders*', { timeout: 20000 })
         ]);
         console.log(`  => ✅ ログイン通信完了 (URL: ${page.url()})`);
       } catch (e) {

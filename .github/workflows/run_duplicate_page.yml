@@ -19,7 +19,8 @@ jobs:
       - name: Install dependencies
         run: |
           npm init -y
-          npm install playwright axios
+          # ★大改修：Stealthプラグインを追加インストールする
+          npm install playwright axios playwright-extra puppeteer-extra-plugin-stealth
           npx playwright install --with-deps chromium
 
       - name: Run Duplicate Script

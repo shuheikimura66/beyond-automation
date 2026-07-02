@@ -33,7 +33,7 @@ const axios = require('axios');
     console.log(`=========================================`);
 
     // =========================================================
-    // [Step 1] ログイン処理（確実な入力＋人間らしいマウス操作）
+    // [Step 1] ログイン処理
     // =========================================================
     console.log(`\n[Step 1] ターゲットURLにアクセスします: ${targetUrl}`);
     await page.goto(targetUrl);
@@ -45,11 +45,8 @@ const axios = require('axios');
     const emailInput = page.locator('input[name="email"], input[type="email"]').first();
     const passInput = page.locator('input[name="password"], input[type="password"]').first();
 
-    // 1回目のログイン
     if (await emailInput.isVisible().catch(() => false)) {
       console.log(`  => 🔑 ログイン画面を検知。安定したフローで入力します。`);
-      
-      // ★修正: 文字抜けを防ぐため fill に戻しつつ、クリックの長押し(delay)でBot回避
       await emailInput.click({ delay: 100 });
       await emailInput.fill(process.env.SQUADBEYOND_ID);
       await page.waitForTimeout(300);
@@ -60,14 +57,11 @@ const axios = require('axios');
 
       console.log(`  => ⏳ ログインボタンをクリックして遷移を待機します...`);
       const loginBtn = page.getByRole('button', { name: 'ログイン' }).first();
-      
-      // ★追加: 人間のようにボタンをホバーしてからクリックする
       await loginBtn.hover();
       await page.waitForTimeout(300);
       await loginBtn.click({ delay: 100 });
 
       try {
-        // ★修正: 「メール入力欄が消えること」をログイン成功の絶対条件にする
         await emailInput.waitFor({ state: 'hidden', timeout: 15000 });
         console.log(`  => ✅ ログイン通信完了 (URL: ${page.url()})`);
       } catch (e) {
@@ -100,7 +94,6 @@ const axios = require('axios');
         await page.waitForSelector('input[name="email"], input[type="email"], [data-testid="list-menu-item"]', { timeout: 10000 });
     } catch(e) {}
 
-    // 2回目のログイン
     if (await emailInput.isVisible().catch(() => false)) {
       await emailInput.click({ delay: 100 });
       await emailInput.fill(process.env.SQUADBEYOND_ID);

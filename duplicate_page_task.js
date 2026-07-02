@@ -10,8 +10,7 @@ const axios = require('axios');
   });
   let page = await context.newPage();
 
-  // ★大改修：Bot検知を回避する強力なおまじない
-  // ブラウザの「私は自動化ツールです」という自己申告フラグを強制的に false に偽装します
+  // ブラウザの自動操縦フラグを偽装（Bot検知対策）
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'webdriver', {
       get: () => false,
@@ -65,7 +64,6 @@ const axios = require('axios');
         await emailInput.pressSequentially(targetId, { delay: 50 });
         await page.waitForTimeout(300);
         if (await emailInput.inputValue() === targetId) break;
-        console.log(`    ⚠️ IDの文字抜けを検知。再入力します (${i+1}/3)`);
       }
 
       const targetPass = process.env.SQUADBEYOND_PASS;
@@ -76,19 +74,11 @@ const axios = require('axios');
         await passInput.pressSequentially(targetPass, { delay: 50 });
         await page.waitForTimeout(300);
         if (await passInput.inputValue() === targetPass) break;
-        console.log(`    ⚠️ パスワードの文字抜けを検知。再入力します (${i+1}/3)`);
       }
 
-      // ★大改修：入力直後のBot判定を避けるため、フォーカスを外して2秒の「間（ま）」を作る
-      console.log(`  => ⏳ 人間らしい一呼吸を置きます (2秒待機)...`);
-      await page.mouse.click(10, 10);
-      await page.waitForTimeout(2000);
-
-      console.log(`  => ⏳ ログインボタンをクリックして遷移を待機します...`);
-      const loginBtn = page.getByRole('button', { name: 'ログイン' }).first();
-      await loginBtn.hover();
-      await page.waitForTimeout(500);
-      await loginBtn.click({ delay: 100 });
+      // ★大改修：Bot対策のクリックブロックを回避するため、ボタンを押さずにEnterキーで送信する
+      console.log(`  => ⏳ Enterキーを押してログインを実行します...`);
+      await passInput.press('Enter');
 
       try {
         await Promise.race([
@@ -103,6 +93,9 @@ const axios = require('axios');
       await page.waitForTimeout(2000);
     }
 
+    // =========================================================
+    // [Step 1.1] 状態リセット（強制ログアウトまたはリロード）
+    // =========================================================
     console.log(`\n[Step 1.1] 状態リセット（強制ログアウトまたはリロード）`);
     await page.goto(targetUrl);
     await page.waitForLoadState('load');
@@ -122,6 +115,9 @@ const axios = require('axios');
       console.log(`  => ⚠️ ログアウトスキップ（すでにログアウト済み等）`);
     }
 
+    // =========================================================
+    // [Step 1.2] クリーンな状態で再度ログインを実行します
+    // =========================================================
     console.log(`\n[Step 1.2] クリーンな状態で再度ログインを実行します。`);
     try {
         await page.waitForSelector('input[name="email"], input[type="email"], [data-testid="list-menu-item"]', { timeout: 10000 });
@@ -149,15 +145,8 @@ const axios = require('axios');
         if (await passInput.inputValue() === targetPass) break;
       }
 
-      console.log(`  => ⏳ 人間らしい一呼吸を置きます (2秒待機)...`);
-      await page.mouse.click(10, 10);
-      await page.waitForTimeout(2000);
-
-      console.log(`  => ⏳ ログインボタンをクリックして遷移を待機します...`);
-      const loginBtn = page.getByRole('button', { name: 'ログイン' }).first();
-      await loginBtn.hover();
-      await page.waitForTimeout(500);
-      await loginBtn.click({ delay: 100 });
+      console.log(`  => ⏳ Enterキーを押してログインを実行します...`);
+      await passInput.press('Enter');
 
       try {
         await Promise.race([
@@ -170,6 +159,11 @@ const axios = require('axios');
         console.log(`  => ⚠️ 再ログイン遷移タイムアウト`);
       }
       await page.waitForTimeout(2000);
+    }
+
+    // ★追加防波堤：ここでまだログイン画面にいるなら、強行せずにエラーで止める
+    if (await emailInput.isVisible().catch(() => false)) {
+      throw new Error("ログインに失敗しました。認証情報、またはBot検知によるブロックを確認してください。");
     }
 
     console.log(`\n[Step 1.3] チーム「フルアウト」を選択します。`);

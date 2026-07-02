@@ -33,7 +33,7 @@ const axios = require('axios');
     console.log(`=========================================`);
 
     // =========================================================
-    // [Step 1] ログイン処理
+    // [Step 1] ログイン処理（確実な入力＋人間らしいマウス操作）
     // =========================================================
     console.log(`\n[Step 1] ターゲットURLにアクセスします: ${targetUrl}`);
     await page.goto(targetUrl);
@@ -45,29 +45,33 @@ const axios = require('axios');
     const emailInput = page.locator('input[name="email"], input[type="email"]').first();
     const passInput = page.locator('input[name="password"], input[type="password"]').first();
 
+    // 1回目のログイン
     if (await emailInput.isVisible().catch(() => false)) {
-      console.log(`  => 🔑 ログイン画面を検知。人間らしい速度で入力します。`);
-      await emailInput.click();
-      await emailInput.clear();
-      await emailInput.pressSequentially(process.env.SQUADBEYOND_ID, { delay: 50 });
+      console.log(`  => 🔑 ログイン画面を検知。安定したフローで入力します。`);
+      
+      // ★修正: 文字抜けを防ぐため fill に戻しつつ、クリックの長押し(delay)でBot回避
+      await emailInput.click({ delay: 100 });
+      await emailInput.fill(process.env.SQUADBEYOND_ID);
+      await page.waitForTimeout(300);
+
+      await passInput.click({ delay: 100 });
+      await passInput.fill(process.env.SQUADBEYOND_PASS);
       await page.waitForTimeout(500);
 
-      await passInput.click();
-      await passInput.clear();
-      await passInput.pressSequentially(process.env.SQUADBEYOND_PASS, { delay: 50 });
-      await page.waitForTimeout(1000);
-
       console.log(`  => ⏳ ログインボタンをクリックして遷移を待機します...`);
-      await page.getByRole('button', { name: 'ログイン' }).first().click();
+      const loginBtn = page.getByRole('button', { name: 'ログイン' }).first();
+      
+      // ★追加: 人間のようにボタンをホバーしてからクリックする
+      await loginBtn.hover();
+      await page.waitForTimeout(300);
+      await loginBtn.click({ delay: 100 });
 
       try {
-        await Promise.race([
-            page.waitForURL('**/users/teams', { timeout: 20000 }),
-            page.waitForSelector('[data-testid="list-menu-item"]', { timeout: 20000 })
-        ]);
+        // ★修正: 「メール入力欄が消えること」をログイン成功の絶対条件にする
+        await emailInput.waitFor({ state: 'hidden', timeout: 15000 });
         console.log(`  => ✅ ログイン通信完了 (URL: ${page.url()})`);
       } catch (e) {
-        console.log(`  => ⚠️ 遷移タイムアウト。無限ロードの可能性があります。`);
+        console.log(`  => ⚠️ 遷移タイムアウト。無限ロードまたは入力エラーの可能性があります。`);
       }
       await page.waitForTimeout(2000);
     }
@@ -96,25 +100,25 @@ const axios = require('axios');
         await page.waitForSelector('input[name="email"], input[type="email"], [data-testid="list-menu-item"]', { timeout: 10000 });
     } catch(e) {}
 
+    // 2回目のログイン
     if (await emailInput.isVisible().catch(() => false)) {
-      await emailInput.click();
-      await emailInput.clear();
-      await emailInput.pressSequentially(process.env.SQUADBEYOND_ID, { delay: 50 });
+      await emailInput.click({ delay: 100 });
+      await emailInput.fill(process.env.SQUADBEYOND_ID);
+      await page.waitForTimeout(300);
+
+      await passInput.click({ delay: 100 });
+      await passInput.fill(process.env.SQUADBEYOND_PASS);
       await page.waitForTimeout(500);
 
-      await passInput.click();
-      await passInput.clear();
-      await passInput.pressSequentially(process.env.SQUADBEYOND_PASS, { delay: 50 });
-      await page.waitForTimeout(1000);
-
       console.log(`  => ⏳ ログインボタンをクリックして遷移を待機します...`);
-      await page.getByRole('button', { name: 'ログイン' }).first().click();
+      const loginBtn = page.getByRole('button', { name: 'ログイン' }).first();
+      await loginBtn.hover();
+      await page.waitForTimeout(300);
+      await loginBtn.click({ delay: 100 });
 
       try {
-        await Promise.race([
-            page.waitForURL('**/users/teams', { timeout: 20000 }),
-            page.waitForSelector('[data-testid="list-menu-item"]', { timeout: 20000 })
-        ]);
+        await emailInput.waitFor({ state: 'hidden', timeout: 15000 });
+        console.log(`  => ✅ ログイン通信完了 (URL: ${page.url()})`);
       } catch (e) {
         console.log(`  => ⚠️ 再ログイン遷移タイムアウト`);
       }
@@ -210,7 +214,6 @@ const axios = require('axios');
     // =========================================================
     console.log(`\n[Step 4] 対象記事のメニューを開きます。`);
 
-    // ★大修正: ポップアップを確実に消すため、Escキーと画面の左上端(10,10)をクリック
     console.log(`  - 意図せぬポップアップを解除するため、画面外をクリックしEscキーを押します。`);
     await page.keyboard.press('Escape');
     await page.mouse.click(10, 10);
@@ -231,7 +234,7 @@ const axios = require('axios');
     await page.waitForTimeout(500);
 
     await page.locator('[data-testid="option-icon"]').first().click();
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(500);
 
     console.log(`  => 「別フォルダへ複製」を選択します。`);
     const duplicateMenuItem = page.getByText('別フォルダへ複製', { exact: true }).last();
@@ -259,18 +262,24 @@ const axios = require('axios');
     console.log(`  - 検索窓に「${destFolder}」を入力します。`);
     const destFolderSearchInput = page.locator('input').last();
     await destFolderSearchInput.waitFor({ state: 'visible', timeout: 5000 });
+    await destFolderSearchInput.click();
     await destFolderSearchInput.fill(destFolder);
     await page.waitForTimeout(2000);
 
-    // ★大修正: list-menu-item の条件を撤廃し、最も深くにあるテキスト要素を直接狙い撃ちする
-    console.log(`  - グループ「${groupListDest}」をクリックして展開します。`);
-    const targetGroup = page.getByText(groupListDest).filter({ hasNot: page.locator('div') }).last();
-    await targetGroup.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
-    await targetGroup.click();
-    await page.waitForTimeout(1000);
+    const portalsStep6 = page.locator('body > div:not(#root)');
+
+    if (groupListDest && groupListDest.trim() !== "") {
+        console.log(`  - グループ「${groupListDest}」をクリックして展開します。`);
+        const targetGroup = portalsStep6.getByText(groupListDest).filter({ hasNot: page.locator('div') }).last();
+        await targetGroup.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
+        await targetGroup.click();
+        await page.waitForTimeout(1000);
+    } else {
+        console.log(`  - ⚠️ グループ指定なしのため、グループ展開をスキップします。`);
+    }
 
     console.log(`  - フォルダ「${destFolder}」をクリックします。`);
-    const targetFolder = page.getByText(destFolder).filter({ hasNot: page.locator('div') }).last();
+    const targetFolder = portalsStep6.getByText(destFolder).filter({ hasNot: page.locator('div') }).last();
     await targetFolder.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
     await targetFolder.click();
     await page.waitForTimeout(1000);
@@ -286,124 +295,4 @@ const axios = require('axios');
       await urlInput.click();
       await urlInput.fill(deliveryUrl);
       await page.keyboard.press('Tab'); 
-      await page.waitForTimeout(500);
-    }
-
-    console.log(`  - 「🙆いつでも変更可能です」をクリックしてページ名欄を開きます。`);
-    const pageNameTab = page.getByText('いつでも変更可能です').last();
-    await pageNameTab.waitFor({ state: 'visible', timeout: 5000 });
-    await pageNameTab.click();
-    await page.waitForTimeout(1000);
-
-    console.log(`  - ページ名「${newArticleName}」を入力します。`);
-    const pageNameInput = activeModal.locator('section:nth-of-type(3) input').last();
-    await pageNameInput.waitFor({ state: 'visible', timeout: 5000 });
-    await pageNameInput.click();
-    await page.keyboard.press('Control+A');
-    await pageNameInput.fill(newArticleName);
-    await page.waitForTimeout(500);
-
-    console.log(`  - 「設定確認」をクリックします。`);
-    await page.getByText('設定確認', { exact: true }).last().click();
-    await page.waitForTimeout(2000);
-
-    console.log(`  - 「この内容でページを複製する」をクリックします。`);
-    await page.getByText('この内容でページを複製する', { exact: true }).last().click();
-
-    // =========================================================
-    // [Step 6] 複製完了待機 → URL取得
-    // =========================================================
-    console.log(`  => ⏳ 複製処理の完了を待機しています... (10秒)`);
-    await page.waitForTimeout(10000);
-
-    console.log(`\n[Step 6] 複製されたページのURLを取得します。`);
-
-    await page.goto('https://app.squadbeyond.com/folders');
-    await page.waitForLoadState('load');
-    await page.waitForTimeout(2000);
-
-    if (!page.url().includes('/folders')) {
-      const fulloutRetry6 = page.locator('div').filter({ hasText: /^フルアウト$/ }).last();
-      if (await fulloutRetry6.isVisible({ timeout: 5000 }).catch(() => false)) {
-        await fulloutRetry6.click();
-        await page.waitForTimeout(3000);
-        await page.waitForLoadState('load');
-      }
-      await page.goto('https://app.squadbeyond.com/folders');
-      await page.waitForLoadState('load');
-      await page.waitForTimeout(2000);
-    }
-
-    console.log(`  - 複製先フォルダ「${destFolder}」を検索します。`);
-    const searchTrigger2 = page.locator('input[placeholder*="検索"], [placeholder*="検索"]').first();
-    if (await searchTrigger2.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await searchTrigger2.click();
-    } else {
-        await page.getByText('検索', { exact: true }).first().click();
-    }
-    await page.waitForTimeout(1500);
-
-    const sideInputForUrl = page.locator('div[role="dialog"] input').first().or(page.locator('input').last());
-    await sideInputForUrl.waitFor({ state: 'visible', timeout: 10000 });
-    await sideInputForUrl.fill(destFolder);
-    await page.waitForTimeout(2000);
-
-    const folderTab6 = page.locator('span').filter({ hasText: /^フォルダ/ }).last();
-    await folderTab6.waitFor({ state: 'visible', timeout: 10000 });
-    await folderTab6.click();
-    await page.waitForTimeout(1000);
-
-    console.log(`  - フォルダ「${destFolder}」をクリックします。`);
-    const markForUrl = page.locator('[data-testid="list-menu-item"] mark').first();
-    await markForUrl.waitFor({ state: 'visible', timeout: 10000 });
-    
-    console.log(`  => 📄 新しいタブが開くのを待機します...`);
-    const [newPageDest] = await Promise.all([
-      context.waitForEvent('page'),
-      markForUrl.click()
-    ]);
-    page = newPageDest;
-    await page.waitForLoadState('load');
-    await page.waitForTimeout(3000);
-
-    console.log(`  - コンテンツ内で記事「${newArticleName}」を検索します。`);
-    const folderSearchInput2 = page.locator('input[placeholder*="フォルダ内検索"], input[placeholder*="検索"]').last();
-    if (!(await folderSearchInput2.isVisible({ timeout: 2000 }).catch(() => false))) {
-        await page.locator('button.efy50tl0').click().catch(() => {});
-        await page.waitForTimeout(500);
-    }
-    await folderSearchInput2.waitFor({ state: 'visible', timeout: 10000 });
-    await folderSearchInput2.fill(newArticleName);
-    await page.waitForTimeout(3000);
-
-    console.log(`  - 記事「${newArticleName}」をクリックして右サイドバーを開きます。`);
-    const targetArticleRow = page.locator('[data-testid="list-menu-item"]')
-      .filter({ hasText: newArticleName }).first();
-    await targetArticleRow.waitFor({ state: 'visible', timeout: 10000 });
-    await targetArticleRow.getByText(newArticleName, { exact: true }).first().click();
-    await page.waitForTimeout(1500);
-
-    console.log(`  - URLコピーボタンをクリックします。`);
-    await page.getByRole('button', { name: 'コピー' }).first().click();
-    await page.waitForTimeout(500);
-
-    const finalUrl = await page.evaluate(() => navigator.clipboard.readText());
-    console.log(`  => 🎉 取得したURL: ${finalUrl}`);
-
-    if (gasUrl) {
-      await axios.post(gasUrl, { row_idx: rowIdx, entry_url: finalUrl, status: 'success', task_type: 'duplicate' });
-    }
-
-    console.log(`\n🎉 RPA処理が完了しました！`);
-
-  } catch (error) {
-    console.error(`\n❌ エラー発生:\n`, error);
-    await page.screenshot({ path: 'duplicate-error-screenshot.png', fullPage: true });
-    if (gasUrl) {
-      await axios.post(gasUrl, { row_idx: rowIdx, entry_url: "", status: 'error', task_type: 'duplicate' });
-    }
-    process.exit(1);
-  } finally {
-    await browser.close();
-  }
-})();
+      await page.waitForTimeout

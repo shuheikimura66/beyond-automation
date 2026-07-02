@@ -1,5 +1,21 @@
 # Bug Fix Log — beyond-automation / task.js
 
+## [2026-07-02] #060 — 根本的解決: puppeteer-extra-plugin-stealth の導入によるCloudflare突破
+
+**対象ファイル**
+`.github/workflows/run_duplicate_page.yml` (パッケージ追加)
+`duplicate_page_task.js` (Step 1 ログイン処理全般)
+
+**問題**
+Playwright単体でどれほど「人間らしい操作（遅延、タイピング偽装、マウス操作等）」をエミュレートしても、SquadBeyondの背後にある強力なWAF（Cloudflare等）にBotと見破られ、ログイン画面での無限ロード（ターピット）が解消しなかった。
+
+**原因**
+クラウド実行環境（GitHub ActionsのUbuntuサーバー等）からのHeadlessブラウザアクセスは、ブラウザ内部のFingerprint（指紋）レベルでBotと判定されてしまう。Playwright標準の機能だけではこのFingerprintを完全に隠蔽することは不可能であった。
+
+**修正**
+「表面的な操作の偽装」を諦め、スクレイピング界隈における対Bot専用のデファクトスタンダードである `playwright-extra` および `puppeteer-extra-plugin-stealth` プラグインを導入した。
+これにより、ブラウザの内部的なFingerprintが「一般的な人間のChrome」として偽装されるため、小細工なしのシンプルな `fill()` と `click()` を用いた安定したログイン処理であっさりと認証を突破できるようになった。
+
 ## [2026-07-02] #050 — duplicate_page_task.js: ログイン処理の堅牢化（pressSequentiallyの廃止とfillへの回帰）
 
 **対象ファイル**

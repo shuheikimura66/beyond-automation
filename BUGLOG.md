@@ -1,5 +1,23 @@
 # Bug Fix Log — beyond-automation / task.js
 
+## [2026-07-02] #061 — task.js: puppeteer-extra-plugin-stealth の導入とログイン処理のシンプル化
+
+**対象ファイル**
+`.github/workflows/run_rpa.yml` (パッケージ追加)
+`task.js` (初期化処理, Step 1, Step 1.2)
+
+**問題**
+`duplicate_page_task.js` で発生していた「Cloudflare等のBot検知によるログイン画面の無限ロード（ターピット）」問題が `task.js` でも同様に発生し、処理が進行しなくなる恐れがあった。
+
+**原因**
+Playwright標準の機能や小手先のユーザーエージェント・OS偽装では、最新のBot検知システムにブラウザのFingerprint（指紋）を見破られてしまうため。
+
+**修正**
+`duplicate_page_task.js` で成功した対策を横展開した。
+1. `playwright-extra` と `puppeteer-extra-plugin-stealth` を読み込み、Playwrightのブラウザ起動にStealthプラグインを適用。
+2. これによりブラウザ自体が「一般的な人間のChrome」として振る舞うようになったため、冗長で不安定だった「1文字ずつのタイピング（`pressSequentially`）」や「遅延クリック」などの小細工をすべて削除。
+3. 最もシンプルで確実な `fill()` と `click()` を用いたログインロジックに回帰し、堅牢性と実行速度を大幅に向上させた。
+
 ## [2026-07-02] #060 — 根本的解決: puppeteer-extra-plugin-stealth の導入によるCloudflare突破
 
 **対象ファイル**

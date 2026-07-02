@@ -1,15 +1,15 @@
-const { chromium } = require('playwright');
+// ★大改修：Playwright単体ではなく、Stealthプラグインを組み込んだ拡張版を呼び出します
+const { chromium } = require('playwright-extra');
+const stealth = require('puppeteer-extra-plugin-stealth')();
+chromium.use(stealth);
+
 const axios = require('axios');
 
 (async () => {
-  // 自動テストフラグを隠す最低限のオプション
-  const browser = await chromium.launch({
-    args: ['--disable-blink-features=AutomationControlled']
-  });
+  const browser = await chromium.launch();
   const context = await browser.newContext({
     viewport: { width: 1372, height: 841 },
     permissions: ['clipboard-read', 'clipboard-write'],
-    // 少し新しめのChromeに偽装して怪しさを減らす
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
   });
   let page = await context.newPage();
@@ -37,7 +37,7 @@ const axios = require('axios');
     console.log(`=========================================`);
 
     // =========================================================
-    // [Step 1] ログイン処理（完全キーボード操作）
+    // [Step 1] ログイン処理（Stealthプラグインによる確実な突破）
     // =========================================================
     console.log(`\n[Step 1] ターゲットURLにアクセスします: ${targetUrl}`);
     await page.goto(targetUrl);
@@ -47,26 +47,17 @@ const axios = require('axios');
     } catch(e) {}
 
     const emailInput = page.locator('input[name="email"], input[type="email"]').first();
+    const passInput = page.locator('input[name="password"], input[type="password"]').first();
 
     if (await emailInput.isVisible().catch(() => false)) {
-      console.log(`  => 🔑 ログイン画面を検知。マウスを使わず完全キーボード操作でログインします。`);
-      await page.waitForTimeout(2000);
+      console.log(`  => 🔑 ログイン画面を検知。Stealthプラグインを用いてシンプルにログインを実行します。`);
+      
+      // プラグインがBot検知を防ぐため、人間らしい偽装（遅延やタイピング）は一切不要になります
+      await emailInput.fill(process.env.SQUADBEYOND_ID);
+      await passInput.fill(process.env.SQUADBEYOND_PASS);
 
-      // マウスでクリックせず、フォーカスを合わせるだけ
-      await emailInput.focus();
-      await page.keyboard.type(process.env.SQUADBEYOND_ID, { delay: 100 });
-      await page.waitForTimeout(500);
-
-      // Tabキーを押してパスワード欄へ移動
-      await page.keyboard.press('Tab');
-      await page.waitForTimeout(500);
-
-      await page.keyboard.type(process.env.SQUADBEYOND_PASS, { delay: 100 });
-      await page.waitForTimeout(500);
-
-      // ログインボタンはクリックせず、Enterキーでフォーム送信
-      console.log(`  => ⏳ Enterキーを押してログインを実行します...`);
-      await page.keyboard.press('Enter');
+      console.log(`  => ⏳ ログインボタンをクリックして遷移を待機します...`);
+      await page.getByRole('button', { name: 'ログイン' }).first().click();
 
       try {
         await Promise.race([
@@ -76,7 +67,7 @@ const axios = require('axios');
         ]);
         console.log(`  => ✅ ログイン通信完了 (URL: ${page.url()})`);
       } catch (e) {
-        console.log(`  => ⚠️ 遷移タイムアウト。無限ロードの可能性があります。`);
+        console.log(`  => ⚠️ 遷移タイムアウト。`);
       }
       await page.waitForTimeout(2000);
     }
@@ -111,22 +102,15 @@ const axios = require('axios');
         await page.waitForSelector('input[name="email"], input[type="email"], [data-testid="list-menu-item"]', { timeout: 10000 });
     } catch(e) {}
 
+    // 2回目のログイン
     if (await emailInput.isVisible().catch(() => false)) {
-      console.log(`  => 🔑 ログイン画面を検知。マウスを使わず完全キーボード操作でログインします。`);
-      await page.waitForTimeout(2000);
+      console.log(`  => 🔑 ログイン画面を検知。Stealthプラグインを用いてシンプルにログインを実行します。`);
+      
+      await emailInput.fill(process.env.SQUADBEYOND_ID);
+      await passInput.fill(process.env.SQUADBEYOND_PASS);
 
-      await emailInput.focus();
-      await page.keyboard.type(process.env.SQUADBEYOND_ID, { delay: 100 });
-      await page.waitForTimeout(500);
-
-      await page.keyboard.press('Tab');
-      await page.waitForTimeout(500);
-
-      await page.keyboard.type(process.env.SQUADBEYOND_PASS, { delay: 100 });
-      await page.waitForTimeout(500);
-
-      console.log(`  => ⏳ Enterキーを押してログインを実行します...`);
-      await page.keyboard.press('Enter');
+      console.log(`  => ⏳ ログインボタンをクリックして遷移を待機します...`);
+      await page.getByRole('button', { name: 'ログイン' }).first().click();
 
       try {
         await Promise.race([

@@ -2,26 +2,35 @@ const { chromium } = require('playwright');
 const axios = require('axios');
 
 (async () => {
-  const browser = await chromium.launch();
+  // ★大改修1：ブラウザの起動オプションで「自動テストツール」の内部フラグを完全に無効化する
+  const browser = await chromium.launch({
+    args: [
+      '--disable-blink-features=AutomationControlled',
+      '--disable-features=IsolateOrigins,site-per-process'
+    ]
+  });
+
   const context = await browser.newContext({
     viewport: { width: 1372, height: 841 },
     permissions: ['clipboard-read', 'clipboard-write'],
-    // 完璧なユーザーエージェント
+    // ユーザーエージェントを Windows の Chrome に偽装
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
   });
   let page = await context.newPage();
 
   // =========================================================
-  // ★究極のBot偽装スクリプト（Stealth Evasion）
+  // ★大改修2：究極のBot偽装スクリプト（Stealth Evasion）
   // =========================================================
   await page.addInitScript(() => {
     // 1. webdriverフラグの消去
     Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-    // 2. 言語設定の偽装（サーバー環境の英語を隠蔽）
+    // 2. ★重要：UA（Windows）と内部OS情報が矛盾しないように platform を Win32 に偽装
+    Object.defineProperty(navigator, 'platform', { get: () => 'Win32' });
+    // 3. 言語設定の偽装（サーバー環境の英語を隠蔽）
     Object.defineProperty(navigator, 'languages', { get: () => ['ja-JP', 'ja', 'en-US', 'en'] });
-    // 3. プラグインの偽装（Headlessにはないプラグイン情報を捏造）
+    // 4. プラグインの偽装（Headlessにはないプラグイン情報を捏造）
     Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
-    // 4. Chrome固有のオブジェクトを捏造
+    // 5. Chrome固有のオブジェクトを捏造
     window.chrome = { runtime: {} };
   });
 
@@ -63,7 +72,6 @@ const axios = require('axios');
     // 1回目のログイン
     if (await emailInput.isVisible().catch(() => false)) {
       console.log(`  => 🔑 ログイン画面を検知。セキュリティシステムのロードを待ちます...`);
-      // ★大改修：裏側のセキュリティスクリプト（reCAPTCHA等）が判定を終えるのを確実に待つ
       await page.waitForTimeout(3000);
 
       const targetId = process.env.SQUADBEYOND_ID;
@@ -86,10 +94,14 @@ const axios = require('axios');
         if (await passInput.inputValue() === targetPass) break;
       }
 
-      console.log(`  => ⏳ Enterキーを押してログインを実行します...`);
-      // 少し間を開けてから送信
+      console.log(`  => ⏳ ログインボタンをクリックして遷移を待機します...`);
+      // ★大改修3：偽装が完璧ならクリックの方が怪しまれないため、ボタンクリックに回帰
+      await page.mouse.click(10, 10); // 一度フォーカスを外す
       await page.waitForTimeout(1000);
-      await passInput.press('Enter');
+      const loginBtn = page.getByRole('button', { name: 'ログイン' }).first();
+      await loginBtn.hover();
+      await page.waitForTimeout(500);
+      await loginBtn.click({ delay: 100 });
 
       try {
         await Promise.race([
@@ -159,9 +171,13 @@ const axios = require('axios');
         if (await passInput.inputValue() === targetPass) break;
       }
 
-      console.log(`  => ⏳ Enterキーを押してログインを実行します...`);
+      console.log(`  => ⏳ ログインボタンをクリックして遷移を待機します...`);
+      await page.mouse.click(10, 10);
       await page.waitForTimeout(1000);
-      await passInput.press('Enter');
+      const loginBtn = page.getByRole('button', { name: 'ログイン' }).first();
+      await loginBtn.hover();
+      await page.waitForTimeout(500);
+      await loginBtn.click({ delay: 100 });
 
       try {
         await Promise.race([
@@ -290,7 +306,7 @@ const axios = require('axios');
     await page.waitForTimeout(500);
 
     await page.locator('[data-testid="option-icon"]').first().click();
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(500);
 
     console.log(`  => 「別フォルダへ複製」を選択します。`);
     const duplicateMenuItem = page.getByText('別フォルダへ複製', { exact: true }).last();

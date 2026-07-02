@@ -2,37 +2,17 @@ const { chromium } = require('playwright');
 const axios = require('axios');
 
 (async () => {
-  // ★大改修1：ブラウザの起動オプションで「自動テストツール」の内部フラグを完全に無効化する
+  // 自動テストフラグを隠す最低限のオプション
   const browser = await chromium.launch({
-    args: [
-      '--disable-blink-features=AutomationControlled',
-      '--disable-features=IsolateOrigins,site-per-process'
-    ]
+    args: ['--disable-blink-features=AutomationControlled']
   });
-
   const context = await browser.newContext({
     viewport: { width: 1372, height: 841 },
     permissions: ['clipboard-read', 'clipboard-write'],
-    // ユーザーエージェントを Windows の Chrome に偽装
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    // 少し新しめのChromeに偽装して怪しさを減らす
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
   });
   let page = await context.newPage();
-
-  // =========================================================
-  // ★大改修2：究極のBot偽装スクリプト（Stealth Evasion）
-  // =========================================================
-  await page.addInitScript(() => {
-    // 1. webdriverフラグの消去
-    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-    // 2. ★重要：UA（Windows）と内部OS情報が矛盾しないように platform を Win32 に偽装
-    Object.defineProperty(navigator, 'platform', { get: () => 'Win32' });
-    // 3. 言語設定の偽装（サーバー環境の英語を隠蔽）
-    Object.defineProperty(navigator, 'languages', { get: () => ['ja-JP', 'ja', 'en-US', 'en'] });
-    // 4. プラグインの偽装（Headlessにはないプラグイン情報を捏造）
-    Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
-    // 5. Chrome固有のオブジェクトを捏造
-    window.chrome = { runtime: {} };
-  });
 
   // =========================================================
   // 1. 変数の設定
@@ -57,7 +37,7 @@ const axios = require('axios');
     console.log(`=========================================`);
 
     // =========================================================
-    // [Step 1] ログイン処理
+    // [Step 1] ログイン処理（完全キーボード操作）
     // =========================================================
     console.log(`\n[Step 1] ターゲットURLにアクセスします: ${targetUrl}`);
     await page.goto(targetUrl);
@@ -67,41 +47,26 @@ const axios = require('axios');
     } catch(e) {}
 
     const emailInput = page.locator('input[name="email"], input[type="email"]').first();
-    const passInput = page.locator('input[name="password"], input[type="password"]').first();
 
-    // 1回目のログイン
     if (await emailInput.isVisible().catch(() => false)) {
-      console.log(`  => 🔑 ログイン画面を検知。セキュリティシステムのロードを待ちます...`);
-      await page.waitForTimeout(3000);
+      console.log(`  => 🔑 ログイン画面を検知。マウスを使わず完全キーボード操作でログインします。`);
+      await page.waitForTimeout(2000);
 
-      const targetId = process.env.SQUADBEYOND_ID;
-      for (let i = 0; i < 3; i++) {
-        await emailInput.click({ delay: 50 });
-        await emailInput.clear();
-        await page.waitForTimeout(200);
-        await emailInput.pressSequentially(targetId, { delay: 50 });
-        await page.waitForTimeout(300);
-        if (await emailInput.inputValue() === targetId) break;
-      }
-
-      const targetPass = process.env.SQUADBEYOND_PASS;
-      for (let i = 0; i < 3; i++) {
-        await passInput.click({ delay: 50 });
-        await passInput.clear();
-        await page.waitForTimeout(200);
-        await passInput.pressSequentially(targetPass, { delay: 50 });
-        await page.waitForTimeout(300);
-        if (await passInput.inputValue() === targetPass) break;
-      }
-
-      console.log(`  => ⏳ ログインボタンをクリックして遷移を待機します...`);
-      // ★大改修3：偽装が完璧ならクリックの方が怪しまれないため、ボタンクリックに回帰
-      await page.mouse.click(10, 10); // 一度フォーカスを外す
-      await page.waitForTimeout(1000);
-      const loginBtn = page.getByRole('button', { name: 'ログイン' }).first();
-      await loginBtn.hover();
+      // マウスでクリックせず、フォーカスを合わせるだけ
+      await emailInput.focus();
+      await page.keyboard.type(process.env.SQUADBEYOND_ID, { delay: 100 });
       await page.waitForTimeout(500);
-      await loginBtn.click({ delay: 100 });
+
+      // Tabキーを押してパスワード欄へ移動
+      await page.keyboard.press('Tab');
+      await page.waitForTimeout(500);
+
+      await page.keyboard.type(process.env.SQUADBEYOND_PASS, { delay: 100 });
+      await page.waitForTimeout(500);
+
+      // ログインボタンはクリックせず、Enterキーでフォーム送信
+      console.log(`  => ⏳ Enterキーを押してログインを実行します...`);
+      await page.keyboard.press('Enter');
 
       try {
         await Promise.race([
@@ -146,38 +111,22 @@ const axios = require('axios');
         await page.waitForSelector('input[name="email"], input[type="email"], [data-testid="list-menu-item"]', { timeout: 10000 });
     } catch(e) {}
 
-    // 2回目のログイン
     if (await emailInput.isVisible().catch(() => false)) {
-      console.log(`  => 🔑 ログイン画面を検知。セキュリティシステムのロードを待ちます...`);
-      await page.waitForTimeout(3000);
+      console.log(`  => 🔑 ログイン画面を検知。マウスを使わず完全キーボード操作でログインします。`);
+      await page.waitForTimeout(2000);
 
-      const targetId = process.env.SQUADBEYOND_ID;
-      for (let i = 0; i < 3; i++) {
-        await emailInput.click({ delay: 50 });
-        await emailInput.clear();
-        await page.waitForTimeout(200);
-        await emailInput.pressSequentially(targetId, { delay: 50 });
-        await page.waitForTimeout(300);
-        if (await emailInput.inputValue() === targetId) break;
-      }
-
-      const targetPass = process.env.SQUADBEYOND_PASS;
-      for (let i = 0; i < 3; i++) {
-        await passInput.click({ delay: 50 });
-        await passInput.clear();
-        await page.waitForTimeout(200);
-        await passInput.pressSequentially(targetPass, { delay: 50 });
-        await page.waitForTimeout(300);
-        if (await passInput.inputValue() === targetPass) break;
-      }
-
-      console.log(`  => ⏳ ログインボタンをクリックして遷移を待機します...`);
-      await page.mouse.click(10, 10);
-      await page.waitForTimeout(1000);
-      const loginBtn = page.getByRole('button', { name: 'ログイン' }).first();
-      await loginBtn.hover();
+      await emailInput.focus();
+      await page.keyboard.type(process.env.SQUADBEYOND_ID, { delay: 100 });
       await page.waitForTimeout(500);
-      await loginBtn.click({ delay: 100 });
+
+      await page.keyboard.press('Tab');
+      await page.waitForTimeout(500);
+
+      await page.keyboard.type(process.env.SQUADBEYOND_PASS, { delay: 100 });
+      await page.waitForTimeout(500);
+
+      console.log(`  => ⏳ Enterキーを押してログインを実行します...`);
+      await page.keyboard.press('Enter');
 
       try {
         await Promise.race([
@@ -192,7 +141,7 @@ const axios = require('axios');
       await page.waitForTimeout(2000);
     }
 
-    // 防波堤：ここでまだログイン画面にいるなら、強行せずにエラーで止める
+    // 防波堤：ここでまだログイン画面にいるならエラーで止める
     if (await emailInput.isVisible().catch(() => false)) {
       throw new Error("ログインに失敗しました。認証情報、またはBot検知によるブロックを確認してください。");
     }

@@ -46,14 +46,28 @@ const axios = require('axios');
     const passInput = page.locator('input[name="password"], input[type="password"]').first();
 
     if (await emailInput.isVisible().catch(() => false)) {
-      console.log(`  => 🔑 ログイン画面を検知。安定したフローで入力します。`);
-      await emailInput.click({ delay: 100 });
-      await emailInput.fill(process.env.SQUADBEYOND_ID);
-      await page.waitForTimeout(300);
+      console.log(`  => 🔑 ログイン画面を検知。文字抜けチェック付きのタイピングを実行します。`);
+      
+      // ★大改修: 文字抜けを検知してリトライする堅牢な入力ロジック
+      const targetId = process.env.SQUADBEYOND_ID;
+      for (let i = 0; i < 3; i++) {
+        await emailInput.click({ delay: 50 });
+        await emailInput.clear();
+        await emailInput.pressSequentially(targetId, { delay: 50 });
+        await page.waitForTimeout(300);
+        if (await emailInput.inputValue() === targetId) break;
+        console.log(`    ⚠️ IDの文字抜けを検知。再入力します (${i+1}/3)`);
+      }
 
-      await passInput.click({ delay: 100 });
-      await passInput.fill(process.env.SQUADBEYOND_PASS);
-      await page.waitForTimeout(500);
+      const targetPass = process.env.SQUADBEYOND_PASS;
+      for (let i = 0; i < 3; i++) {
+        await passInput.click({ delay: 50 });
+        await passInput.clear();
+        await passInput.pressSequentially(targetPass, { delay: 50 });
+        await page.waitForTimeout(300);
+        if (await passInput.inputValue() === targetPass) break;
+        console.log(`    ⚠️ パスワードの文字抜けを検知。再入力します (${i+1}/3)`);
+      }
 
       console.log(`  => ⏳ ログインボタンをクリックして遷移を待機します...`);
       const loginBtn = page.getByRole('button', { name: 'ログイン' }).first();
@@ -62,10 +76,14 @@ const axios = require('axios');
       await loginBtn.click({ delay: 100 });
 
       try {
-        await emailInput.waitFor({ state: 'hidden', timeout: 15000 });
+        // 安定していたPromise.raceによる遷移待機に復元
+        await Promise.race([
+            page.waitForURL('**/users/teams', { timeout: 20000 }),
+            page.waitForSelector('[data-testid="list-menu-item"]', { timeout: 20000 })
+        ]);
         console.log(`  => ✅ ログイン通信完了 (URL: ${page.url()})`);
       } catch (e) {
-        console.log(`  => ⚠️ 遷移タイムアウト。無限ロードまたは入力エラーの可能性があります。`);
+        console.log(`  => ⚠️ 遷移タイムアウト。無限ロードの可能性があります。`);
       }
       await page.waitForTimeout(2000);
     }
@@ -94,14 +112,25 @@ const axios = require('axios');
         await page.waitForSelector('input[name="email"], input[type="email"], [data-testid="list-menu-item"]', { timeout: 10000 });
     } catch(e) {}
 
+    // 2回目のログインも同様にリトライロジックを適用
     if (await emailInput.isVisible().catch(() => false)) {
-      await emailInput.click({ delay: 100 });
-      await emailInput.fill(process.env.SQUADBEYOND_ID);
-      await page.waitForTimeout(300);
+      const targetId = process.env.SQUADBEYOND_ID;
+      for (let i = 0; i < 3; i++) {
+        await emailInput.click({ delay: 50 });
+        await emailInput.clear();
+        await emailInput.pressSequentially(targetId, { delay: 50 });
+        await page.waitForTimeout(300);
+        if (await emailInput.inputValue() === targetId) break;
+      }
 
-      await passInput.click({ delay: 100 });
-      await passInput.fill(process.env.SQUADBEYOND_PASS);
-      await page.waitForTimeout(500);
+      const targetPass = process.env.SQUADBEYOND_PASS;
+      for (let i = 0; i < 3; i++) {
+        await passInput.click({ delay: 50 });
+        await passInput.clear();
+        await passInput.pressSequentially(targetPass, { delay: 50 });
+        await page.waitForTimeout(300);
+        if (await passInput.inputValue() === targetPass) break;
+      }
 
       console.log(`  => ⏳ ログインボタンをクリックして遷移を待機します...`);
       const loginBtn = page.getByRole('button', { name: 'ログイン' }).first();
@@ -110,7 +139,10 @@ const axios = require('axios');
       await loginBtn.click({ delay: 100 });
 
       try {
-        await emailInput.waitFor({ state: 'hidden', timeout: 15000 });
+        await Promise.race([
+            page.waitForURL('**/users/teams', { timeout: 20000 }),
+            page.waitForSelector('[data-testid="list-menu-item"]', { timeout: 20000 })
+        ]);
         console.log(`  => ✅ ログイン通信完了 (URL: ${page.url()})`);
       } catch (e) {
         console.log(`  => ⚠️ 再ログイン遷移タイムアウト`);

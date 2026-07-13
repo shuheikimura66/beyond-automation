@@ -1,4 +1,3 @@
-// ★Playwright単体ではなく、Stealthプラグインを組み込んだ拡張版を呼び出します
 const { chromium } = require('playwright-extra');
 const stealth = require('puppeteer-extra-plugin-stealth')();
 chromium.use(stealth);
@@ -194,8 +193,8 @@ const axios = require('axios');
     await page.locator('input').last().fill(domain);
     await page.waitForTimeout(1000);
     
-    // ★大改修：検索結果の1番目を問答無用でクリックする
-    const targetDomain = activePortals.locator('[data-testid="list-menu-item"]').first();
+    // ★大改修：ドメインのドロップダウンには list-menu-item が付かないため、テキストで狙撃する
+    const targetDomain = activePortals.getByText(domain).last();
     await targetDomain.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
     await targetDomain.click();
     await page.waitForTimeout(1000);
@@ -212,7 +211,7 @@ const axios = require('axios');
         await groupInput.fill(groupListDest);
         await page.waitForTimeout(1000);
         
-        // ★大改修：検索結果の1番目のグループを問答無用でクリックする
+        // ★大改修：ユーザーのJSON解析通り、グループは list-menu-item の1番目を問答無用でクリックする
         const targetCreateGroup = activePortals.locator('[data-testid="list-menu-item"]').first();
         await targetCreateGroup.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
         await targetCreateGroup.click();
@@ -353,7 +352,7 @@ const axios = require('axios');
     // =========================================================
     console.log(`\n[Step 5] 「別フォルダへ複製」を選択します。`);
 
-    console.log(`  - 意図せぬポップアップを解除するため、画面の安全な領域をクリックしEscキーを押します。`);
+    console.log(`  - 意図せぬポップアップを解除するため、画面外をクリックしEscキーを押します。`);
     await page.keyboard.press('Escape');
     await page.mouse.click(10, 10);
     await page.waitForTimeout(500);
@@ -406,7 +405,6 @@ const axios = require('axios');
 
     if (groupListDest && groupListDest.trim() !== "") {
         console.log(`  - 検索結果からグループを展開します。`);
-        // ★大改修：検索結果の一番上（＝グループ）を問答無用でクリック
         const targetGroup = portalsStep6.locator('[data-testid="list-menu-item"]').first();
         await targetGroup.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
         await targetGroup.click();
@@ -414,7 +412,6 @@ const axios = require('axios');
     }
 
     console.log(`  - フォルダ「${destFolder}」をクリックします。`);
-    // 展開されたリストからフォルダ名を持つアイテムをクリック
     const targetFolder = portalsStep6.locator('[data-testid="list-menu-item"]').filter({ hasText: destFolder }).last();
     await targetFolder.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
     await targetFolder.click();

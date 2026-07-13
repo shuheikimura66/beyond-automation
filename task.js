@@ -1,4 +1,4 @@
-// ★大改修：Playwright単体ではなく、Stealthプラグインを組み込んだ拡張版を呼び出します
+// ★Playwright単体ではなく、Stealthプラグインを組み込んだ拡張版を呼び出します
 const { chromium } = require('playwright-extra');
 const stealth = require('puppeteer-extra-plugin-stealth')();
 chromium.use(stealth);
@@ -6,13 +6,27 @@ chromium.use(stealth);
 const axios = require('axios');
 
 (async () => {
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({
+    args: [
+      '--disable-blink-features=AutomationControlled',
+      '--disable-features=IsolateOrigins,site-per-process'
+    ]
+  });
+
   const context = await browser.newContext({
     viewport: { width: 1372, height: 841 },
-    // ユーザーエージェントを少し新しめのChromeに偽装
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
   });
   let page = await context.newPage();
+
+  // Stealth Evasion
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+    Object.defineProperty(navigator, 'platform', { get: () => 'Win32' });
+    Object.defineProperty(navigator, 'languages', { get: () => ['ja-JP', 'ja', 'en-US', 'en'] });
+    Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+    window.chrome = { runtime: {} };
+  });
 
   // =========================================================
   // 1. 変数の設定
@@ -39,7 +53,7 @@ const axios = require('axios');
     console.log(`=========================================`);
 
     // =========================================================
-    // [Step 1] ログイン処理（Stealthプラグインによる確実な突破）
+    // [Step 1] ログイン処理
     // =========================================================
     console.log(`\n[Step 1] ターゲットURLにアクセスします: ${targetUrl}`);
     await page.goto(targetUrl);
@@ -53,7 +67,6 @@ const axios = require('axios');
 
     if (await emailInput.isVisible().catch(() => false)) {
       console.log(`  => 🔑 ログイン画面を検知。Stealthプラグインを用いてシンプルにログインを実行します。`);
-      
       await emailInput.fill(process.env.SQUADBEYOND_ID);
       await passInput.fill(process.env.SQUADBEYOND_PASS);
 
@@ -99,7 +112,6 @@ const axios = require('axios');
 
     if (await emailInput.isVisible().catch(() => false)) {
       console.log(`  => 🔑 ログイン画面を検知。Stealthプラグインを用いてシンプルにログインを実行します。`);
-      
       await emailInput.fill(process.env.SQUADBEYOND_ID);
       await passInput.fill(process.env.SQUADBEYOND_PASS);
 
@@ -119,7 +131,6 @@ const axios = require('axios');
       await page.waitForTimeout(2000);
     }
 
-    // 防波堤：ここでまだログイン画面にいるならエラーで止める
     if (await emailInput.isVisible().catch(() => false)) {
       throw new Error("ログインに失敗しました。認証情報、またはBot検知によるブロックを確認してください。");
     }
@@ -130,7 +141,6 @@ const axios = require('axios');
       if (await fulloutItem.isVisible({ timeout: 10000 }).catch(() => false)) {
         await fulloutItem.click();
         console.log(`  => ✅ フルアウト選択完了`);
-        
         await page.waitForURL('https://app.squadbeyond.com/', { timeout: 10000 }).catch(() => {});
         await page.waitForLoadState('load');
         await page.waitForTimeout(3000);
@@ -184,7 +194,8 @@ const axios = require('axios');
     await page.locator('input').last().fill(domain);
     await page.waitForTimeout(1000);
     
-    const targetDomain = activePortals.getByText(domain).filter({ hasNot: page.locator('div') }).last();
+    // ★大改修：検索結果の1番目を問答無用でクリックする
+    const targetDomain = activePortals.locator('[data-testid="list-menu-item"]').first();
     await targetDomain.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
     await targetDomain.click();
     await page.waitForTimeout(1000);
@@ -201,7 +212,8 @@ const axios = require('axios');
         await groupInput.fill(groupListDest);
         await page.waitForTimeout(1000);
         
-        const targetCreateGroup = activePortals.getByText(groupListDest).filter({ hasNot: page.locator('div') }).last();
+        // ★大改修：検索結果の1番目のグループを問答無用でクリックする
+        const targetCreateGroup = activePortals.locator('[data-testid="list-menu-item"]').first();
         await targetCreateGroup.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
         await targetCreateGroup.click();
         await page.waitForTimeout(500);
@@ -393,17 +405,17 @@ const axios = require('axios');
     const portalsStep6 = page.locator('body > div:not(#root)');
 
     if (groupListDest && groupListDest.trim() !== "") {
-        console.log(`  - グループ「${groupListDest}」をクリックして展開します。`);
-        const targetGroup = portalsStep6.getByText(groupListDest).filter({ hasNot: page.locator('div') }).last();
+        console.log(`  - 検索結果からグループを展開します。`);
+        // ★大改修：検索結果の一番上（＝グループ）を問答無用でクリック
+        const targetGroup = portalsStep6.locator('[data-testid="list-menu-item"]').first();
         await targetGroup.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
         await targetGroup.click();
         await page.waitForTimeout(1000);
-    } else {
-        console.log(`  - ⚠️ グループ指定なしのため、グループ展開をスキップします。`);
     }
 
     console.log(`  - フォルダ「${destFolder}」をクリックします。`);
-    const targetFolder = portalsStep6.getByText(destFolder).filter({ hasNot: page.locator('div') }).last();
+    // 展開されたリストからフォルダ名を持つアイテムをクリック
+    const targetFolder = portalsStep6.locator('[data-testid="list-menu-item"]').filter({ hasText: destFolder }).last();
     await targetFolder.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
     await targetFolder.click();
     await page.waitForTimeout(1000);

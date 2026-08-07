@@ -161,8 +161,35 @@ const axios = require('axios');
 
     console.log(`\n[Step 1.5] 「ページ」メニューをクリックします。`);
     await page.waitForLoadState('networkidle').catch(() => {});
-    await page.locator('[data-testid="list-menu-item"]').nth(2).waitFor({ state: 'visible', timeout: 20000 });
-    await page.locator('[data-testid="list-menu-item"]').nth(2).click();
+
+    try {
+      const menuTexts = await page.locator('[data-testid="list-menu-item"]').allInnerTexts();
+      console.log(`  - サイドメニュー項目一覧: [${menuTexts.map(t => t.trim()).join(', ')}]`);
+    } catch (e) {}
+
+    // ★大改修：サイドメニューに新しい項目（AI機能など）が追加され、インデックス固定の
+    // `nth(2)` が別の項目（OAuth連携が必要な外部AIサブドメインへの遷移リンク）を指してしまう
+    // ケースが発生した。テキスト「ページ」を優先的に狙い、見つからない場合のみ従来の
+    // nth(2) にフォールバックする。
+    const pageMenuByText = page.locator('[data-testid="list-menu-item"]').filter({ hasText: /^ページ$/ }).first();
+    let pageMenuItem;
+    if (await pageMenuByText.isVisible({ timeout: 5000 }).catch(() => false)) {
+      console.log(`  => テキスト「ページ」でメニュー項目を特定しました。`);
+      pageMenuItem = pageMenuByText;
+    } else {
+      console.log(`  => ⚠️ テキスト「ページ」で見つからないため、nth(2)にフォールバックします。`);
+      pageMenuItem = page.locator('[data-testid="list-menu-item"]').nth(2);
+    }
+    await pageMenuItem.waitFor({ state: 'visible', timeout: 20000 });
+    await pageMenuItem.click();
+
+    // OAuth連携ページ（api.squadbeyond.com/oauth/authorize 等）に誤って遷移した場合は
+    // 想定外の項目をクリックしてしまったことを示すため、明示的に検知してエラーにする。
+    await page.waitForTimeout(1500);
+    if (/oauth\/authorize/.test(page.url())) {
+      throw new Error(`「ページ」メニューのクリックが誤って別項目（OAuth連携: ${page.url()}）に遷移しました。サイドメニューの構成が変更された可能性があります。`);
+    }
+
     await page.waitForTimeout(3000);
     await page.waitForLoadState('load');
 

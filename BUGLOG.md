@@ -1,5 +1,30 @@
 # Bug Fix Log — beyond-automation / task.js
 
+## [2026-08-08] #064 — task.js: Step 1.5「ページ」メニューが `nth(2)` 固定インデックスにより誤った項目（外部AI連携のOAuth画面）に遷移
+
+**対象ファイル**
+`task.js` (Step 1.5 / Step 2)
+
+**エラー内容**
+```
+❌ エラー発生:
+ locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator('[data-testid="generate-folder-icon"]')
+    - waiting for "https://api.squadbeyond.com/oauth/authorize?..." navigation to finish...
+    - navigated to "https://api.squadbeyond.com/oauth/authorize?..."
+```
+
+**原因**
+Step 1.5 でサイドメニューの「ページ」項目を `[data-testid="list-menu-item"]` の `nth(2)`（3番目固定インデックス）でクリックしていたが、SquadBeyond側のサイドメニューに新規項目（AI関連機能など、`beyond-ai.squadbeyond.com` への外部連携リンク）が追加され並び順がずれた結果、`nth(2)` が「ページ」ではなく外部AI連携メニューを指すようになっていた。
+このメニューをクリックすると `api.squadbeyond.com/oauth/authorize` へのOAuth認可フローに遷移してしまい、以降の `generate-folder-icon` 等のセレクターがそのドメイン上に存在しないため、Step 2でタイムアウトしていた。
+
+**修正**
+1. `list-menu-item` を固定インデックスではなくテキスト `/^ページ$/` で特定するように変更し、見つからない場合のみ従来の `nth(2)` にフォールバックする2段構成にした。
+2. クリック直後に現在URLが `oauth/authorize` を含む場合は、誤った項目をクリックしたことを示す明示的なエラーを即時スローするようにし、原因特定を早期化した（従来はStep 2で無関係なタイムアウトとして検出されていた）。
+3. デバッグ用に、クリック前のサイドメニュー項目テキスト一覧をログ出力するようにした（今後メニュー構成が変わった際に即座に気づけるようにするため）。
+DOM診断ログ（エラー時の `[side-menu]` 等の出力）は既存のまま維持。
+
 ## [2026-07-13] #063 — task.js: ドメイン選択とグループ選択のDOM構造の違いに対応
 
 **対象ファイル**

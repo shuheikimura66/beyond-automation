@@ -1,5 +1,47 @@
 # Bug Fix Log — beyond-automation / task.js
 
+## [2026-09-08] #065 — task.js & duplicate_page_task.js: 「Googleでログイン」ボタン追加によりgetByRoleの部分一致で誤クリック
+
+**対象ファイル**
+`task.js` (Step 1, Step 1.2), `duplicate_page_task.js` (Step 1, Step 1.2)
+
+**エラー内容（run #34199270772, dispatch: run-rpa, row_idx=52 テスト実行）**
+```
+[Step 1] ...
+=> 🔑 ログイン画面を検知。...
+=> ⏳ ログインボタンをクリックして遷移を待機します...
+=> ⚠️ 遷移タイムアウト。無限ロードの可能性があります。
+...
+❌ エラー発生: TimeoutError
+[現在URL] https://accounts.google.com/v3/signin/identifier?...
+```
+DOM診断ログで `[list-menu-item] 見つかりません` 等、SquadBeyond本体のUIが一切存在しない状態でタイムアウト。
+
+**原因**
+SquadBeyondのログイン画面に新しく「Google でログイン」ボタンが追加された（実ブラウザで確認済み、Playwright accessibility tree）：
+```
+button "Google でログイン" [ref_2] type="button"   ← DOM順で先頭
+textbox "メールアドレス" [ref_3]
+textbox "パスワード" [ref_4]
+button "ログイン" [ref_6] type="submit"            ← 本来クリックしたいボタン
+```
+コードは `page.getByRole('button', { name: 'ログイン' }).first().click()` を使用していたが、Playwrightの `getByRole` の `name` オプションは**デフォルトで部分一致**（大文字小文字無視の部分文字列マッチ）。
+「Google でログイン」の accessible name は文字列として "ログイン" を含むため、DOM順で先に出現するこのボタンに `.first()` がマッチしてしまい、意図せず **Googleのフェデレーテッドログイン（OAuth）** に遷移していた。結果、SquadBeyond本体には一切到達できずタイムアウト。
+
+**修正**
+`task.js`・`duplicate_page_task.js` の計4箇所（各ファイルのStep 1／Step 1.2）で、`getByRole` に `exact: true` を追加し、完全一致でのみ本来の「ログイン」submitボタンを狙うように変更。
+
+```js
+// 修正前
+await page.getByRole('button', { name: 'ログイン' }).first().click();
+
+// 修正後
+await page.getByRole('button', { name: 'ログイン', exact: true }).first().click();
+```
+
+**検証**
+実ブラウザ（Claude Browser、未ログイン状態）で `https://app.squadbeyond.com/` を直接開き、accessibility treeで上記のボタン構成を確認済み。ユーザーからも「メール＋パスワードでの直接ログインは今も可能」と確認を得た上での修正。
+
 ## [2026-08-08] #064 — task.js: Step 1.5「ページ」メニューが `nth(2)` 固定インデックスにより誤った項目（外部AI連携のOAuth画面）に遷移
 
 **対象ファイル**

@@ -57,7 +57,7 @@ const axios = require('axios');
       await passInput.fill(process.env.SQUADBEYOND_PASS);
 
       console.log(`  => ⏳ ログインボタンをクリックして遷移を待機します...`);
-      await page.getByRole('button', { name: 'ログイン' }).first().click();
+      await page.getByRole('button', { name: 'ログイン', exact: true }).first().click();
 
       try {
         await Promise.race([
@@ -110,7 +110,7 @@ const axios = require('axios');
       await passInput.fill(process.env.SQUADBEYOND_PASS);
 
       console.log(`  => ⏳ ログインボタンをクリックして遷移を待機します...`);
-      await page.getByRole('button', { name: 'ログイン' }).first().click();
+      await page.getByRole('button', { name: 'ログイン', exact: true }).first().click();
 
       try {
         await Promise.race([

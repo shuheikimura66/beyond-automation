@@ -1,5 +1,33 @@
 # Bug Fix Log — beyond-automation / task.js
 
+## [2026-09-08] #066 — duplicate_page_task.js: Step 5の複製先フォルダ選択が#062の修正未適用で失敗
+
+**対象ファイル**
+`duplicate_page_task.js` (Step 5)
+
+**エラー内容（run #34200217644, dispatch: run-duplicate-page, row_idx=88 テスト実行）**
+```
+[Step 5] 複製ウィザードを進めます。
+❌ エラー発生: TimeoutError
+```
+スクリーンショットでは「複製先フォルダを選択」の検索窓に `test0908_1（kzqmtar.site）` を入力したが、ドロップダウンには全く無関係なグループ「リリィジュ（GDN_FullouT）」しか表示されておらず、`getByText(destFolder)` が見つからずタイムアウトしていた。
+
+**原因**
+BUGLOG #062（2026-07-02）で「ドロップダウン検索結果は問答無用で `[data-testid="list-menu-item"]` の該当項目をクリックする」という堅牢な方式に統一したはずだったが、その修正は `task.js` のStep 6（同じ複製ダイアログ）には適用されていた一方、`duplicate_page_task.js` のStep 5（全く同じ複製ダイアログのはずの箇所）には**適用されておらず**、旧式の `getByText(groupListDest/destFolder).filter({ hasNot: page.locator('div') }).last()` という表記ゆれ・DOM構造変更に弱いセレクターが残っていた。
+（#062のBUGLOG本文には「対象ファイル: duplicate_page_task.js (Step 5)」と記載があったが、実際のコードには反映されていなかった＝ドキュメントと実装の乖離）。
+
+**修正**
+`task.js` Step 6 と全く同じ、堅牢な `[data-testid="list-menu-item"]` ベースの選択方式に統一。
+```js
+// 修正後
+const targetGroup = portalsStep6.locator('[data-testid="list-menu-item"]').first();
+...
+const targetFolder = portalsStep6.locator('[data-testid="list-menu-item"]').filter({ hasText: destFolder }).last();
+```
+
+**検証**
+task.js側で先に作成済みの実フォルダ「test0908_1（kzqmtar.site）」を複製先に指定して再実行し確認予定。
+
 ## [2026-09-08] #065 — task.js & duplicate_page_task.js: 「Googleでログイン」ボタン追加によりgetByRoleの部分一致で誤クリック
 
 **対象ファイル**

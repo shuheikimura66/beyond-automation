@@ -274,8 +274,8 @@ const axios = require('axios');
     const portalsStep6 = page.locator('body > div:not(#root)');
 
     if (groupListDest && groupListDest.trim() !== "") {
-        console.log(`  - グループ「${groupListDest}」をクリックして展開します。`);
-        const targetGroup = portalsStep6.getByText(groupListDest).filter({ hasNot: page.locator('div') }).last();
+        console.log(`  - 検索結果からグループを展開します。`);
+        const targetGroup = portalsStep6.locator('[data-testid="list-menu-item"]').first();
         await targetGroup.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
         await targetGroup.click();
         await page.waitForTimeout(1000);
@@ -284,7 +284,7 @@ const axios = require('axios');
     }
 
     console.log(`  - フォルダ「${destFolder}」をクリックします。`);
-    const targetFolder = portalsStep6.getByText(destFolder).filter({ hasNot: page.locator('div') }).last();
+    const targetFolder = portalsStep6.locator('[data-testid="list-menu-item"]').filter({ hasText: destFolder }).last();
     await targetFolder.waitFor({ state: 'visible', timeout: 5000 }).catch(()=>{});
     await targetFolder.click();
     await page.waitForTimeout(1000);

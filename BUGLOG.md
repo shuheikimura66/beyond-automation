@@ -1,5 +1,41 @@
 # Bug Fix Log — beyond-automation / task.js
 
+## [2026-09-08] #067 — duplicate_page_task.js: 配信URLとページ名が同一文字列だと「設定確認」ボタンが無効化されたまま
+
+**対象ファイル**
+`duplicate_page_task.js` (Step 5)
+
+**エラー内容（run #34210876352, dispatch: run-duplicate-page, row_idx=89, オーケストレーター経由の自動実行）**
+```
+locator.click: Timeout 30000ms exceeded.
+  - waiting for getByText('設定確認', { exact: true }).last()
+    - locator resolved to <span class="css-1xdhyk6 ehjzppn0">設定確認</span>
+  - attempting click action
+    - element is not enabled
+```
+配信URL・ページ名の入力自体は成功していたが、「設定確認」ボタンだけが無効状態のまま変化せずタイムアウト。
+
+**原因（切り分け済み）**
+row_idx=89のテスト行で `配信URL設定` 列と `beyondページ名（コピー先）` 列に**全く同じ文字列**（`test0908_2`）が入力されていた。
+配信URLとページ名を異なる文字列（`test0908_2diag` / `test0908_2_診断用ページ名`）に変えて同一payloadで再実行したところ正常完了（run #34211572604、取得URL: `https://sb.wellbest.jp/ab/test0908_2diag`）。
+→ SquadBeyond側の仕様（またはバリデーションのバグ）で、配信URLとページ名が同一文字列だと「設定確認」ボタンが有効化されないことを確認。コード自体のセレクター等に問題はない。
+
+**対応**
+根本原因はテストデータ側（配信URLとページ名の値の偶然の一致）であり、恒久的なコード側のバグではない。
+ただし今後同様のケースで無言の30秒タイムアウトに陥らないよう、「設定確認」クリック前にボタンのenabled状態を確認し、無効なままなら即座に原因を名指しするエラーを投げるよう変更（診断の高速化）。
+```js
+// 修正後
+const confirmBtn5 = page.getByText('設定確認', { exact: true }).last();
+const confirmBtn5Enabled = await confirmBtn5.isEnabled({ timeout: 5000 }).catch(() => null);
+if (confirmBtn5Enabled === false) {
+  throw new Error(`「設定確認」ボタンが無効化されたままです。配信URL（${deliveryUrl}）とページ名（${newArticleName}）が同一文字列だと有効化されないケースを確認済みのため、値が重複していないか確認してください。`);
+}
+await confirmBtn5.click();
+```
+
+**運用メモ**
+スプレッドシートで配信URLとページ名を入力する際は、同一文字列にしないよう注意（今回のrow_idx=89はテストデータのため実害なし。実データ入力時に同様の事象が起きた場合は上記エラーメッセージで即座に気づける）。
+
 ## [2026-09-08] #066 — duplicate_page_task.js: Step 5の複製先フォルダ選択が#062の修正未適用で失敗
 
 **対象ファイル**

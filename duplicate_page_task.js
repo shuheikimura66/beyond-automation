@@ -318,7 +318,12 @@ const axios = require('axios');
     await page.waitForTimeout(500);
 
     console.log(`  - 「設定確認」をクリックします。`);
-    await page.getByText('設定確認', { exact: true }).last().click();
+    const confirmBtn5 = page.getByText('設定確認', { exact: true }).last();
+    const confirmBtn5Enabled = await confirmBtn5.isEnabled({ timeout: 5000 }).catch(() => null);
+    if (confirmBtn5Enabled === false) {
+      throw new Error(`「設定確認」ボタンが無効化されたままです。配信URL（${deliveryUrl}）とページ名（${newArticleName}）が同一文字列だと有効化されないケースを確認済みのため、値が重複していないか確認してください。`);
+    }
+    await confirmBtn5.click();
     await page.waitForTimeout(2000);
 
     console.log(`  - 「この内容でページを複製する」をクリックします。`);
